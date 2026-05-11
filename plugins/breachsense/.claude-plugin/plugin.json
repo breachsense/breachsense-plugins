@@ -2,7 +2,11 @@
   "name": "breachsense",
   "description": "Query Breachsense breach-data APIs from Claude. Surface stealer-log credentials, combo lists, dark-web leaks, session tokens, attack-surface findings, leaked secrets / non-human identities, and more — with intelligent interpretation and follow-up suggestions.",
   "version": "1.0.0",
-  "author": "Breachsense",
+  "author": {
+	  "name": "Breachsense",
+	  "email": "info@breachsense.com",
+	  "url": "https://breachsense.com"
+	    },
   "homepage": "https://breachsense.com",
   "license": "MIT",
   "keywords": [
