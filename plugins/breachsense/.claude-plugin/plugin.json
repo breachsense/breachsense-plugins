@@ -1,0 +1,8 @@
+{
+  "name": "breachsense",
+  "description": "Query Breachsense breach-data APIs from Claude. Surface stealer-log credentials, combo lists, dark-web leaks, attack-surface findings, leaked secrets / non-human identities, and more.",
+  "version": "1.0.0",
+  "homepage": "https://breachsense.com",
+  "license": "Proprietary",
+  "keywords": ["security", "breach", "credentials", "stealer", "darkweb", "asm", "threat-intel"]
+}
