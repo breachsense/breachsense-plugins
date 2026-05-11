@@ -1,8 +1,23 @@
 {
   "name": "breachsense",
-  "description": "Query Breachsense breach-data APIs from Claude. Surface stealer-log credentials, combo lists, dark-web leaks, attack-surface findings, leaked secrets / non-human identities, and more.",
+  "description": "Query Breachsense breach-data APIs from Claude. Surface stealer-log credentials, combo lists, dark-web leaks, session tokens, attack-surface findings, leaked secrets / non-human identities, and more — with intelligent interpretation and follow-up suggestions.",
   "version": "1.0.0",
+  "author": "Breachsense",
   "homepage": "https://breachsense.com",
-  "license": "Proprietary",
-  "keywords": ["security", "breach", "credentials", "stealer", "darkweb", "asm", "threat-intel"]
+  "license": "MIT",
+  "keywords": [
+    "security",
+    "breach",
+    "credentials",
+    "stealer",
+    "darkweb",
+    "asm",
+    "threat-intel",
+    "osint",
+    "sessions",
+    "nhi",
+    "api-keys",
+    "ransomware",
+    "dark-web-monitoring"
+  ]
 }

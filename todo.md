@@ -12,8 +12,9 @@ Scope here is **Phase A** only (self-published marketplace via GitHub repo). Pha
 - [x] Write `plugins/breachsense/.claude-plugin/plugin.json` (plugin manifest)
 - [x] Write `plugins/breachsense/skills/breachsense/SKILL.md` covering all 10 endpoints + license-key handling + light interpretation rules
 - [x] Write `README.md` with install instructions for env-var and memory-file patterns
-- [ ] Push to a real `breachsense/breachsense-plugins` GitHub repo (manual step — scaffolding is local)
-- [ ] End-to-end install test: `/plugin marketplace add` then `/plugin install`, then exercise each endpoint
+- [x] Full rewrite of SKILL.md with complete API documentation (all params, response fields, NHI filters, account actions, webhooks, test alerts, license rotation)
+- [ ] Push to `breachsense/breachsense-plugins` GitHub repo
+- [ ] End-to-end install test: install plugin, then exercise each endpoint
 - [ ] Confirm SKILL.md endpoint examples against a real license key
 
 ## Endpoint surface (from nginx.conf)
@@ -33,19 +34,22 @@ Base host: `api.breachsense.com` (also `api.breachsense.io`), HTTPS.
 | `/monitor` and `/account` | nginx.conf:255 | already aliased — rename from #51 already shipped |
 | `/nhi` | nginx.conf:433 | non-human identities |
 
-Auth (api2.lua:1295-1298): license key passes as `?lic=<key>` query param **or** `lic: <key>` header. Skill should default to the header form.
+Auth (api2.lua:1295-1298): license key passes as `?lic=<key>` query param **or** `lic: <key>` header. Skill defaults to the header form.
 
-Primary query param across endpoints: `?search=<term>` (stealer, combo, sessions, nhi, radar, darkweb). Common modifiers: `?p=N` (page), `?date=YYYYMMDD`, `?strict=1`.
+Primary query param across endpoints: `?s=<term>` (alias: `?search=<term>`). Common modifiers: `?p=N` (page), `?date=YYYYMMDD`, `?count`, `?unixtime`.
 
-## Open questions (from spec — to resolve before submit to Anthropic marketplace)
+## Changelog
 
-- Pagination — auto-paginate or surface "page 1 of N"?
-- Within-session result caching for cross-endpoint correlation?
-- During the `/monitor`→`/account` transition, does the Skill mention both or hard-cut?
-
-## Review
-
-Phase A scaffolding complete locally. Files ready to be committed to a new GitHub
-repo `breachsense/breachsense-plugins`. End-to-end install test still pending —
-needs the repo pushed first (or `/plugin marketplace add <local-path>` for a
-local validation pass).
+### v1.0.0 (2026-05-12)
+- Complete SKILL.md rewrite with all 10 endpoints fully documented
+- Added response field tables for every endpoint
+- Added NHI filter parameters (category, platform, prefix, source_type, token_type)
+- Added ASM filter parameters (assets, pphish)
+- Added Account endpoint actions: add, del, list, test, rotate
+- Added webhook payload format documentation
+- Added test alert feature with daily limits and response format
+- Added license key rotation documentation with safety warnings
+- Added complete HTTP status code table
+- Created top-level `.claude-plugin/marketplace.json`
+- Updated plugin.json with author, MIT license, expanded keywords
+- Updated README with endpoint table and expanded examples
