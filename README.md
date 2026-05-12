@@ -6,9 +6,25 @@ This plugin gives Claude knowledge of all **10 Breachsense API endpoints** — s
 
 ## Install
 
+From inside Claude Code:
+
 ```
-/install-plugin https://github.com/breachsense/breachsense-plugins
+/plugin marketplace add breachsense/breachsense-plugins
+/plugin install breachsense@breachsense
+/reload-plugins
 ```
+
+Pick **"Install for you (user scope)"** when prompted so the skill is available across all your projects.
+
+### Verify the skill loaded
+
+After install, run `/skills` inside Claude Code. You should see:
+
+```
+breachsense:breachsense · plugin · ~170 tok · on
+```
+
+Note: the `/reload-plugins` summary line may report `0 skills` — this is a cosmetic display issue and does not mean the skill failed to load. Trust `/skills` instead.
 
 ## Set your license key
 
@@ -17,10 +33,11 @@ The skill auto-detects the license key from one of two places (in order):
 ### Option 1 — environment variable (recommended)
 
 ```bash
-export BREACHSENSE_API_KEY=your-license-key-here
+echo 'export BREACHSENSE_API_KEY=your-license-key-here' >> ~/.zshrc
+source ~/.zshrc
 ```
 
-Add it to your shell rc file (`~/.bashrc`, `~/.zshrc`) so it's set in every session.
+Restart your Claude Code session after setting the variable — Claude Code only reads the environment at startup.
 
 ### Option 2 — memory file
 
@@ -29,6 +46,7 @@ Create `~/.claude/breachsense/license.md` containing just your key:
 ```bash
 mkdir -p ~/.claude/breachsense
 echo 'your-license-key-here' > ~/.claude/breachsense/license.md
+chmod 600 ~/.claude/breachsense/license.md
 ```
 
 Use this if you don't want to manage shell environment variables.
@@ -76,6 +94,33 @@ What it **won't** do:
 | `/asm` | Attack surface management — subdomains, exposed services, phishing domains |
 | `/account` | Watchlist management, webhook alerts, test alerts, license rotation |
 
+## Updating the plugin
+
+When a new version ships:
+
+```
+/plugin marketplace update breachsense
+/plugin install breachsense@breachsense
+/reload-plugins
+```
+
+## Troubleshooting
+
+**"Marketplace file not found"** — The repo is missing `.claude-plugin/marketplace.json` at the root, or your local marketplace cache is stale. Run `/plugin marketplace update breachsense`.
+
+**Plugin installs but `/skills` shows nothing** — Confirm Claude Code is on a recent version (`claude --version`, then `npm install -g @anthropic-ai/claude-code@latest` to update). Then uninstall, update the marketplace, and reinstall:
+
+```
+/plugin uninstall breachsense@breachsense
+/plugin marketplace update breachsense
+/plugin install breachsense@breachsense
+/reload-plugins
+```
+
+**Validation error on install** — Check the `/plugin` UI's **Errors** tab for the exact reason. Most issues are schema mismatches in `plugin.json` (e.g. `author` must be an object with `name`/`email`/`url`, not a string).
+
+**SSH clone fails** — Claude Code clones via SSH (`git@github.com:...`). Confirm your GitHub SSH key works: `ssh -T git@github.com`. If you don't have SSH set up, use the HTTPS form: `/plugin marketplace add https://github.com/breachsense/breachsense-plugins.git`.
+
 ## Get a license key
 
 Sign up at [breachsense.com](https://breachsense.com).
@@ -83,4 +128,5 @@ Sign up at [breachsense.com](https://breachsense.com).
 ## Support
 
 - Issues: https://github.com/breachsense/breachsense-plugins/issues
-- Email: info@breachsense.com
+- Email: support@breachsense.com
+
