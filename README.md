@@ -2,7 +2,7 @@
 
 Query the [Breachsense](https://breachsense.com) breach-data platform from Claude Code, Claude Desktop, or any tool that supports Claude plugins.
 
-The plugin loads all 10 Breachsense API endpoints (stealer logs, combo lists, sessions, dark-web, ASM, NHI, and the rest) into Claude. Ask in natural language; get interpreted results back instead of raw JSON.
+The plugin loads all 10 Breachsense API endpoints (stealer, combo, creds, sessions, nhi, radar, darkweb, docs, and account) into Claude. Ask in natural language; get interpreted results back instead of raw JSON.
 
 ## Install
 
