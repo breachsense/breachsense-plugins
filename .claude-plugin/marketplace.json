@@ -7,14 +7,14 @@
   },
   "metadata": {
     "description": "Query the Breachsense breach-data platform from Claude — stealer logs, sessions, dark web, NHI, ASM, and more.",
-    "version": "1.0.0"
+    "version": "1.1.0"
   },
   "plugins": [
     {
       "name": "breachsense",
       "source": "./plugins/breachsense",
       "description": "Query all 10 Breachsense API endpoints in natural language. Covers stealer logs, combo lists, third-party creds, session tokens, non-human identities, dark-web leaks, dark-web markets, leaked documents, attack surface management, and watchlist/webhook account management.",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "category": "security",
       "keywords": ["security", "breach-data", "threat-intel", "osint", "darkweb", "stealer-logs", "asm"],
       "homepage": "https://breachsense.com",

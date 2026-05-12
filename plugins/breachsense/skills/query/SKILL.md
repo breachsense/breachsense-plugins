@@ -1,6 +1,6 @@
 ---
-name: breachsense
-description: Query Breachsense breach-data APIs to find compromised employee credentials, infostealer hits, leaked session tokens, dark-web exposure, attack surface findings, and leaked API keys / non-human identities. Activate when the user asks about breach data, credential exposure, stealer logs, leaked passwords, dark-web mentions, ransomware leak sites, exposed databases, leaked secrets, ASM, session tokens, non-human identities, or wants to set up a watchlist / alerts for a domain.
+name: query
+description: Query Breachsense to find leaked employee credentials, infostealer hits, session tokens, exposed API keys / non-human identities (NHI), ransomware leak-site mentions, credentials traded on dark-web hacker forums, full-text search across leaked ransomware files / third-party breaches / unsecured database dumps, and attack-surface findings for a domain. Activate for: breach data, credential exposure, stealer logs, leaked passwords, session cookies, leaked secrets, leaked documents, search any string across leaked files, find company/name mentions in dark-web data, unsecured databases, third-party breaches, dark-web forums, ransomware leaks, attack surface / subdomains / phishing domains, or watchlist alerts.
 ---
 
 # Breachsense
@@ -277,9 +277,9 @@ curl -sL -H "lic: $BREACHSENSE_API_KEY" "https://api.breachsense.com/darkweb?s=a
 
 ---
 
-### `/radar` — dark-web market mentions
+### `/radar` — dark-web forum & market mentions
 
-Hits from premium dark-web markets (Russian Market and others). These are credentials being actively sold.
+Hits from dark-web hacker forums and underground marketplaces where credentials, access, and breach data are traded or sold. Coverage includes premium markets like Russian Market on higher tiers.
 
 **Response fields:**
 
@@ -298,7 +298,7 @@ curl -sL -H "lic: $BREACHSENSE_API_KEY" "https://api.breachsense.com/radar?s=acm
 
 ### `/docs` — full-text search across leaked documents
 
-Full-text search over documents leaked by ransomware groups and other dark-web sources. Useful for finding what was actually exposed (contracts, employee data, source code). Accepts broad search terms — addresses, phone numbers, company names, domains, keywords, phrases.
+Full-text search across three corpora: (1) files leaked by ransomware groups, (2) records from third-party breaches, and (3) data from unsecured database exposures. Accepts any search string, company name, person name, address, phone number, keyword, or phrase, and returns the documents/records containing it. Use this to find what's actually inside a breach, not just whether the domain appears in a hit count.
 
 **Response fields:**
 
