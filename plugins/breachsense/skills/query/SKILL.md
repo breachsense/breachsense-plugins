@@ -1,13 +1,13 @@
 ---
 name: query
-description: Query Breachsense to find leaked employee credentials, infostealer hits, session tokens, exposed API keys / non-human identities (NHI), ransomware leak-site mentions, credentials traded on dark-web hacker forums, full-text search across leaked ransomware files / third-party breaches / unsecured database dumps, and attack-surface findings for a domain. Activate for: breach data, credential exposure, stealer logs, leaked passwords, session cookies, leaked secrets, leaked documents, search any string across leaked files, find company/name mentions in dark-web data, unsecured databases, third-party breaches, dark-web forums, ransomware leaks, attack surface / subdomains / phishing domains, or watchlist alerts.
+description: Query Breachsense to find leaked employee credentials, infostealer hits, session tokens, exposed API keys / non-human identities (NHI), credentials harvested by phishing kits, ransomware leak-site mentions, credentials traded on dark-web hacker forums, full-text search across leaked ransomware files / third-party breaches / unsecured database dumps, and attack-surface findings for a domain. Activate for: breach data, credential exposure, stealer logs, leaked passwords, session cookies, leaked secrets, leaked documents, search any string across leaked files, find company/name mentions in dark-web data, unsecured databases, third-party breaches, dark-web forums, ransomware leaks, phished credentials / phishing-kit captures, attack surface / subdomains / phishing domains, or watchlist alerts.
 ---
 
 # Breachsense
 
 Breachsense ([breachsense.com](https://breachsense.com)) is a breach-data platform used by security teams to find compromised employee credentials before attackers exploit them. This skill lets the user query the Breachsense API in natural language.
 
-This skill covers **10 endpoints**. All requests go to `https://api.breachsense.com` and require a license key.
+This skill covers **11 endpoints**. All requests go to `https://api.breachsense.com` and require a license key.
 
 ---
 
@@ -249,6 +249,48 @@ curl -sL -H "lic: $BREACHSENSE_API_KEY" "https://api.breachsense.com/nhi?s=acme.
 
 ---
 
+### `/phish` — credentials harvested by phishing kits
+
+Credentials a victim typed into a phishing page, recovered from the kit operators' own exfiltration channels. Because the capture happens at the moment of theft, a hit means the person **actually submitted the credential to an attacker**, not that it turned up in a leaked file later. That makes these higher-confidence than `/combo` and different in kind from `/stealer`, where malware scraped a saved password off a device.
+
+**Field naming trap:** on `/stealer`, `src` is the legitimate site the victim was logging into. Here the equivalent fields are the **attacker's** pages, which is why they are called `source_url` and `kit_url` rather than `src`. Do not map them onto each other.
+
+**Search modes:** domain (rolls subdomains up automatically), full email address (exact match), or IP address (auto-detected).
+
+**Response fields:**
+
+| Field | Meaning |
+|---|---|
+| `usr` | Username / email the victim submitted |
+| `pwd` | Password the victim submitted |
+| `source_url` | Page that harvested the credential |
+| `kit_url` | Phishing kit host |
+| `brand` | Brand the kit impersonated (e.g. `apple`, `dropbox`, `office365`) |
+| `ip` | Victim IP at submission |
+| `country`, `city`, `region`, `isp` | Victim geolocation |
+| `os`, `browser`, `user_agent` | Victim device fingerprint |
+| `phone`* | Phone number submitted |
+| `otp`* | One-time code submitted. Implies live session interception, flag prominently |
+| `visitor_id`* | Kit-assigned visitor identifier |
+| `fnd` | Date captured (`YYYYMMDD` or unixtime) |
+
+**Entitlement-gated fields.** These appear only for licenses with the phish PII entitlement, which is **per-contract, not per-tier**. If they are absent, that is entitlement, not missing data:
+
+| Field | Meaning |
+|---|---|
+| `card_masked` | Card number, masked to first 6 + last 4 at query time |
+| `card_expiry`, `card_holder`, `card_valid_luhn` | Card metadata |
+| `dob`, `ssn`, `mothers_maiden_name` | Identity data the kit collected |
+
+`campaign_id` and `page_url` are deliberately not returned. `page_url` is always identical to `source_url`, and `campaign_id` is a 1:1 relabelling of the kit host.
+
+```
+curl -sL -H "lic: $BREACHSENSE_API_KEY" "https://api.breachsense.com/phish?s=acme.com"
+curl -sL -H "lic: $BREACHSENSE_API_KEY" "https://api.breachsense.com/phish?s=user@acme.com"
+```
+
+---
+
 ### `/darkweb` — ransomware leak sites
 
 Mentions of the target on ransomware leak sites (and the dark-web more broadly). Also aliased as `/darknet`.
@@ -481,6 +523,7 @@ After delivering results, **proactively suggest the most useful next move** base
 - After `/darkweb` returns ransomware mentions → *"This domain shows up on 5 ransomware leak sites. Want me to query `/docs` to see what was actually exposed?"*
 - After any meaningful hit → *"Want me to add this domain to your watchlist via `/account` so new hits ping you automatically?"*
 - After `/asm` finds exposed services → *"Found 3 exposed dev environments. Want to cross-check `/creds` and `/stealer` for credentials on those subdomains?"*
+- After `/phish` returns hits → *"2 people submitted credentials to an Office365 kit last week, and one record has an OTP, which means the attacker was intercepting a live login. Want me to check `/sessions` for tokens on the same domain?"*
 - After `/nhi` finds leaked tokens → *"Found 2 AWS access keys from stealer logs. Want me to filter by `source_type=env_file` to see if any came from `.env` files in code repos?"*
 
 Pick **one** suggestion at a time — the most relevant to what the user is clearly investigating. Don't bombard.

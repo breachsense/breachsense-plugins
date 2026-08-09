@@ -1,12 +1,12 @@
 {
   "name": "breachsense",
-  "description": "Query Breachsense breach-data APIs from Claude. Surface stealer-log credentials, combo lists, dark-web leaks, session tokens, attack-surface findings, leaked secrets / non-human identities, and more — with intelligent interpretation and follow-up suggestions.",
-  "version": "1.1.0",
+  "description": "Query Breachsense breach-data APIs from Claude. Surface stealer-log credentials, combo lists, dark-web leaks, session tokens, attack-surface findings, leaked secrets / non-human identities, and more \u2014 with intelligent interpretation and follow-up suggestions.",
+  "version": "1.2.0",
   "author": {
-	  "name": "Breachsense",
-	  "email": "support@breachsense.com",
-	  "url": "https://breachsense.com"
-	    },
+    "name": "Breachsense",
+    "email": "support@breachsense.com",
+    "url": "https://breachsense.com"
+  },
   "homepage": "https://breachsense.com",
   "license": "MIT",
   "keywords": [
@@ -22,6 +22,7 @@
     "nhi",
     "api-keys",
     "ransomware",
-    "dark-web-monitoring"
+    "dark-web-monitoring",
+    "phishing"
   ]
 }
