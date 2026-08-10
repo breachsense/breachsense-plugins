@@ -73,6 +73,32 @@ These work across most endpoints:
 
 ## Endpoints
 
+### Credential questions fan out to four endpoints
+
+When the user asks something general about leaked credentials (*"were any of our passwords
+leaked"*, *"check acme.com for exposed credentials"*, *"has anyone at acme.com been
+compromised"*), query **all four** of `/stealer`, `/combo`, `/creds` and `/phish`, then merge
+the results. Each one covers a different way the credential was obtained, and they do not
+overlap:
+
+| Endpoint | How the credential reached us |
+|---|---|
+| `/stealer` | Malware scraped a saved password off the victim's device |
+| `/combo` | Turned up in an aggregated combo list |
+| `/creds` | Came from a named third-party breach or database extract |
+| `/phish` | The victim typed it into a phishing page |
+
+Querying only the first three under-reports the exposure, and it drops the highest-confidence
+category: a `/phish` hit means the person actually handed the credential to an attacker, at a
+known time, on a known fake page.
+
+Give the per-endpoint counts in the summary so the user can see the split. If `/phish` returns
+nothing, say so rather than leaving it out, otherwise a genuinely clean result looks identical
+to a query that was never run.
+
+This applies to open-ended credential questions. When the user names one source explicitly
+(*"check the stealer logs"*, *"what's in the combo lists"*), query just that endpoint.
+
 ### `/stealer` — infostealer credentials
 
 Credentials harvested from infostealer malware (Redline, Lumma, StealC, etc.) infecting end-user machines. Each hit typically carries a plaintext password and the URL the credential was used on.
@@ -138,6 +164,8 @@ curl -sL -H "lic: $BREACHSENSE_API_KEY" "https://api.breachsense.com/combo?s=acm
 ### `/creds` — third-party breaches with credentials
 
 Records sourced from unsecured database extracts and cracked breach corpora. Higher confidence than `/combo`.
+
+Pair this with `/phish` on any general credential question. `/creds` tells you a password was exposed in someone else's breach. `/phish` tells you the user handed one to an attacker directly. See [Credential questions fan out to four endpoints](#credential-questions-fan-out-to-four-endpoints).
 
 **Extra parameters:**
 | Param | Meaning |

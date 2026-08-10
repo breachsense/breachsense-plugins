@@ -2,7 +2,7 @@
 
 Query the [Breachsense](https://breachsense.com) breach-data platform from Claude Code, Claude Desktop, or any tool that supports Claude plugins.
 
-The plugin loads all 10 Breachsense API endpoints (stealer, combo, creds, sessions, nhi, radar, darkweb, docs, and account) into Claude. Ask in natural language; get interpreted results back instead of raw JSON.
+The plugin loads all 11 Breachsense API endpoints (stealer, combo, creds, sessions, nhi, phish, radar, darkweb, docs, asm, and account) into Claude. Ask in natural language; get interpreted results back instead of raw JSON.
 
 ## Install
 
@@ -84,6 +84,7 @@ What it won't do:
 | `/creds` | Third-party breach credentials and unsecured database dumps |
 | `/sessions` | Session cookies and auth tokens (bypass MFA) |
 | `/nhi` | Non-human identities: API keys, OAuth tokens, service creds |
+| `/phish` | Credentials captured by phishing kits, recovered from the operators' exfiltration channels |
 | `/darkweb` | Ransomware leak site mentions |
 | `/radar` | Hacker forums and underground marketplaces where credentials are traded or sold |
 | `/docs` | Full-text search (any string) across leaked ransomware files, third-party breaches, and unsecured database dumps |
