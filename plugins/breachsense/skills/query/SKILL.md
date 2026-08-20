@@ -1,6 +1,6 @@
 ---
 name: query
-description: Query Breachsense to find leaked employee credentials, infostealer hits, session tokens, exposed API keys / non-human identities (NHI), credentials harvested by phishing kits, ransomware leak-site mentions, credentials traded on dark-web hacker forums, full-text search across leaked ransomware files / third-party breaches / unsecured database dumps, and attack-surface findings for a domain. Activate for: breach data, credential exposure, stealer logs, leaked passwords, session cookies, leaked secrets, leaked documents, search any string across leaked files, find company/name mentions in dark-web data, unsecured databases, third-party breaches, dark-web forums, ransomware leaks, phished credentials / phishing-kit captures, attack surface / subdomains / phishing domains, or watchlist alerts.
+description: Query Breachsense to find leaked employee credentials, infostealer hits, session tokens, exposed API keys / non-human identities (NHI), credentials harvested by phishing kits, ransomware leak-site mentions, credentials traded on dark-web hacker forums, full-text search across leaked ransomware files / third-party breaches / unsecured database dumps, and attack-surface findings for a domain. Activate for: breach data, credential exposure, stealer logs, leaked passwords, session cookies, leaked secrets, leaked documents, search any string across leaked files, find company/name mentions in dark-web data, unsecured databases, third-party breaches, dark-web forums, ransomware leaks, phished credentials / phishing-kit captures, attack surface / subdomains / phishing domains, watchlist alerts, or suppressing noisy / false-positive / already-remediated credential alerts.
 ---
 
 # Breachsense
@@ -98,6 +98,8 @@ to a query that was never run.
 
 This applies to open-ended credential questions. When the user names one source explicitly
 (*"check the stealer logs"*, *"what's in the combo lists"*), query just that endpoint.
+
+If the user's problem is too *many* results rather than too few, see the alert whitelist under [`/account`](#the-alert-whitelist--stop-re-reviewing-credentials-youve-already-triaged).
 
 ### `/stealer` — infostealer credentials
 
@@ -433,6 +435,7 @@ Configure a watchlist so the customer gets alerts when new hits appear for a dom
 | `ast` | Asset to monitor (e.g. `example.com`). Supports `::` separator to target a specific webhook. |
 | `notify` | Email address or webhook URL to receive alerts. |
 | `premium` | Set to `1` to enable or `0` to disable premium-marketplace monitoring (Business/Enterprise). |
+| `whitelist` | Bare flag. Combined with `action=add`/`del`/`list` it operates on the alert whitelist instead of the watchlist. |
 
 **Actions:**
 
@@ -491,6 +494,39 @@ Requirements:
 - At least one notification recipient configured
 - One rotation per 24 hours per license
 - The old key is invalidated immediately on success
+
+#### The alert whitelist — stop re-reviewing credentials you've already triaged
+
+The single most common complaint about credential monitoring is noise: the same rotated password, test account or already-remediated credential surfacing week after week. The whitelist fixes that. Add an entry and the alert pipeline drops matching rows before sending.
+
+Reach for this whenever the user describes **false positives, stale records, repeat hits, alert fatigue, or the burden of reviewing data they've already dealt with**.
+
+Add the bare `whitelist` flag to `add`, `del` or `list`. Entries go in `ast`.
+
+```
+# suppress one exact credential pair (still alerts if that user appears with a NEW password)
+curl -sL -H "lic: $BREACHSENSE_API_KEY" "https://api.breachsense.com/account?action=add&whitelist&ast=user@acme.com:OldPass123"
+
+# suppress every alert for a username
+curl -sL -H "lic: $BREACHSENSE_API_KEY" "https://api.breachsense.com/account?action=add&whitelist&ast=user@acme.com"
+
+# list current entries (returns a JSON array, or [] when none are set)
+curl -sL -H "lic: $BREACHSENSE_API_KEY" "https://api.breachsense.com/account?action=list&whitelist"
+
+# remove an entry
+curl -sL -H "lic: $BREACHSENSE_API_KEY" "https://api.breachsense.com/account?action=del&whitelist&ast=user@acme.com:OldPass123"
+```
+
+Behaviour worth stating plainly to the user:
+
+| | |
+|---|---|
+| Covers | `creds`, `stealer` and `combo` alerts, on both email and webhook delivery |
+| Does not cover | API query results. A whitelisted credential still comes back from a direct query. This filters notifications only |
+| Does not cover | `/phish`, which has no alert path yet and is query-only |
+| Matching | Username lowercased and matched case-insensitively, password matched exactly |
+| Limit | 1,000 entries per license, available on every tier |
+| Adding twice | Idempotent, returns `Already whitelisted: <entry>` |
 
 **⚠️ Always confirm with the user before running `action=rotate` — this is a destructive operation that invalidates the current key.**
 
