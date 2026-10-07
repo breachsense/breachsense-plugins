@@ -55,14 +55,13 @@ Every request that returns data counts as **one query** against the license's mo
 - When the user asks "who used our queries" or why usage is high, use the audit log (`/account?action=audit`, see below), not guesswork.
 - Searches for `example.com`, `test.com`, or any subdomain or email at them are not billed. Use them to test an integration. `/docs?download_doc_id=` is always billed.
 
-When the allowance is exhausted, search endpoints return HTTP `403` (some with an empty message, `/asm` with `429` and `limit`/`used` fields). Tell the user they have hit their monthly limit and to contact their Breachsense account manager.
+When the allowance is exhausted, every search endpoint returns HTTP `403` with `{"error": true, "message": "Monthly query limit reached. Contact support@breachsense.com to increase your limit.", "limit": N, "used": N}`. Tell the user they have hit their monthly limit and to contact support@breachsense.com.
 
 ## Pagination
 
 - `p` is the page number, starting at **1**. Default page size is **500**.
 - **HTTP `206`** means more pages exist. **HTTP `200`** means this is the last (or only) page. Always check the status, not just the body, and tell the user when a result is partial.
-- Paginated: `/stealer`, `/combo`, `/creds`, `/nhi`, `/phish`, `/sessions`, `/darkweb`, `/docs`.
-- **Not paginated:** `/radar` and `/asm` return everything in one response. Do not send `p` to them; page 2 and beyond return `[]` and are still billed.
+- Paginated: every search endpoint (`/stealer`, `/combo`, `/creds`, `/nhi`, `/phish`, `/sessions`, `/darkweb`, `/docs`, `/radar`, `/asm`).
 - `limit` (or `l`) changes the page size on most endpoints. Leave it at the default unless the user asks.
 
 ---
@@ -305,7 +304,7 @@ curl -sL -H "lic: $BREACHSENSE_API_KEY" "https://api.breachsense.com/darkweb?ran
 
 ### `/radar`: dark-web forum and market mentions
 
-Hits from hacker forums and underground marketplaces where access, credentials and breach data are traded. Not paginated.
+Hits from hacker forums and underground marketplaces where access, credentials and breach data are traded.
 
 **Search (`s`):** domain. `range` is also supported. `desc` / `tadesc` work only together with `date=`.
 
@@ -342,7 +341,7 @@ curl -sL -H "lic: $BREACHSENSE_API_KEY" -OJ "https://api.breachsense.com/docs?do
 
 ### `/asm`: attack surface management
 
-Discovered subdomains, nameservers, mail servers and potential phishing / lookalike domains for a domain on the customer's watchlist. Not paginated.
+Discovered subdomains, nameservers, mail servers and potential phishing / lookalike domains for a domain on the customer's watchlist.
 
 **Search (`s`):** a domain already on the watchlist (alias `domain`).
 
@@ -400,7 +399,9 @@ There are two levels:
   curl -sL -H "lic: $BREACHSENSE_API_KEY" "https://api.breachsense.com/account?action=add&ast=acme.com::soc@acme.com,https://hooks.acme.com/breachsense"
   ```
 
-**Do not combine `ast=` and `notify=` in one request.** It returns an empty 200 and saves nothing. Use the `::` form for per-asset recipients.
+`action=add&ast=acme.com&notify=soc@acme.com` is treated the same as `ast=acme.com::soc@acme.com`: it adds the asset with `soc@acme.com` as its per-asset recipient. It does **not** touch the license-wide list.
+
+Webhook URLs are stored exactly as sent, so keep the original capitalisation (Slack, Teams and most signed URLs are case-sensitive). Asset names and email addresses are lowercased. Re-adding a webhook that differs only in case replaces the old one.
 
 **Technical contact.** `tech` sets the address for operational and deliverability notices, separate from breach alerts: `action=add&tech=it@acme.com`, `action=list&tech`, `action=del&tech=it@acme.com`.
 
@@ -551,9 +552,9 @@ After results, suggest **one** next move, the one most relevant to what the user
 | `206` | Success, more pages available |
 | `400` | Bad or missing parameter (e.g. a `range` over 31 days) |
 | `401` | `/account`: invalid license ("Please use a valid license.") |
-| `403` | Invalid or expired license, monthly query limit reached, or the endpoint isn't in the customer's plan (`{"error": "Your plan does not include /x.", ...}`). Read the message to tell which. |
+| `403` | Invalid or expired license, monthly query limit reached (`"message": "Monthly query limit reached. ..."` with `limit` / `used`), or the endpoint isn't in the customer's plan (`{"error": "Your plan does not include /x.", ...}`). Read the message to tell which. |
 | `422` | Rotation with no recipient configured |
-| `429` | Rate limited (back off and retry), or on `/asm` the monthly limit (body has `limit` / `used`) |
+| `429` | Rate limited. Back off and retry. |
 | `500` | Server error. Contact support@breachsense.com |
 
 An unknown path returns an HTML page, not JSON. Check the endpoint name.
