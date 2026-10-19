@@ -1,6 +1,6 @@
 ---
 name: query
-description: Query Breachsense to find leaked employee credentials, infostealer hits, session tokens, exposed API keys / non-human identities (NHI), credentials harvested by phishing kits, ransomware leak-site mentions, credentials traded on dark-web hacker forums, full-text search across leaked ransomware files / third-party breaches / unsecured database dumps, and attack-surface findings for a domain. Activate for: breach data, credential exposure, stealer logs, leaked passwords, session cookies, leaked secrets, leaked documents, search any string across leaked files, find company/name mentions in dark-web data, unsecured databases, third-party breaches, dark-web forums, ransomware leaks, phished credentials / phishing-kit captures, attack surface / subdomains / lookalike or phishing domains, watchlist alerts, webhook setup, API usage / remaining queries / who used our queries, or suppressing noisy / false-positive / already-remediated credential alerts.
+description: "Query Breachsense to find leaked employee credentials, infostealer hits, session tokens, exposed API keys / non-human identities (NHI), credentials harvested by phishing kits, ransomware leak-site mentions, credentials traded on dark-web hacker forums, full-text search across leaked ransomware files / third-party breaches / unsecured database dumps, and attack-surface findings for a domain. Activate for: breach data, credential exposure, stealer logs, leaked passwords, session cookies, leaked secrets, leaked documents, search any string across leaked files, find company/name mentions in dark-web data, unsecured databases, third-party breaches, dark-web forums, ransomware leaks, phished credentials / phishing-kit captures, attack surface / subdomains / lookalike or phishing domains, watchlist alerts, webhook setup, API usage / remaining queries / who used our queries, or suppressing noisy / false-positive / already-remediated credential alerts."
 ---
 
 # Breachsense
@@ -16,13 +16,13 @@ This skill covers **11 endpoints**. All requests go to `https://api.breachsense.
 Auto-detect the key at the start of every Breachsense interaction:
 
 1. **Environment variable** `BREACHSENSE_API_KEY` (preferred for power users, scripts, CI).
-2. **Memory file** `~/.claude/breachsense/license.md`. Read it on first use in a session and reuse it. The file contains just the key, optionally with a `key:` prefix or inside a fenced block.
+2. **License file** `~/.config/breachsense/license.md`, or `~/.claude/breachsense/license.md` (the older Claude Code location, still supported). Read it on first use in a session and reuse it. The file contains just the key, optionally with a `key:` prefix or inside a fenced block.
 
 If neither is set, tell the user:
 
 > I need your Breachsense license key. Either:
 > - Set `BREACHSENSE_API_KEY=<key>` in your environment (recommended), or
-> - Create `~/.claude/breachsense/license.md` containing your key.
+> - Create `~/.config/breachsense/license.md` containing your key.
 
 Never log, echo, or include the license key in user-facing output. When showing a curl command, use the env-var form so the key isn't pasted in plaintext.
 
@@ -33,6 +33,8 @@ Pass the key in the `lic` HTTP header (or `?lic=<key>` as a fallback):
 ```
 curl -sL -H "lic: $BREACHSENSE_API_KEY" "https://api.breachsense.com/<endpoint>?s=<term>"
 ```
+
+Make every request with `curl`. Don't use Python's built-in `urllib`: its default user agent (`Python-urllib/3.x`) is blocked and returns `403` with `error code: 1010`.
 
 Build every URL as `?param=value&param=value`. Each option is its own query parameter. Never append options to the search value: `s=acme.com?p=2` searches for the literal string `acme.com?p=2`. The correct form is `s=acme.com&p=2`.
 
