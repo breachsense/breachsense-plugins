@@ -1,10 +1,12 @@
-# Breachsense Plugin for Claude
+# Breachsense Skill for Claude Code, Codex and GitHub Copilot
 
-Query the [Breachsense](https://breachsense.com) breach-data platform from Claude Code, Claude Desktop, or any tool that supports Claude plugins.
+Query the [Breachsense](https://breachsense.com) breach-data platform in plain English from Claude Code, Claude Desktop, OpenAI Codex or GitHub Copilot.
 
-The plugin loads all 11 Breachsense API endpoints (stealer, combo, creds, sessions, nhi, phish, radar, darkweb, docs, asm, and account) into Claude. Ask in natural language; get interpreted results back instead of raw JSON.
+The skill loads all 11 Breachsense API endpoints (stealer, combo, creds, sessions, nhi, phish, radar, darkweb, docs, asm, and account) into your AI assistant. Ask in plain English and get a summary back instead of raw JSON.
 
 ## Install
+
+### Claude Code
 
 Inside Claude Code:
 
@@ -18,11 +20,27 @@ The HTTPS URL form works on any machine. The shorthand `breachsense/breachsense-
 
 Pick **"Install for you (user scope)"** when prompted so the skill is available across all your projects.
 
-### Verify the skill loaded
+#### Verify the skill loaded
 
 Run `/skills` inside Claude Code. You should see `breachsense:query` listed as `on`.
 
 If `/reload-plugins` reports `0 skills`, that's a cosmetic display bug, not a real failure. Trust `/skills`.
+
+### Codex and GitHub Copilot
+
+Both read skills from `~/.agents/skills/`:
+
+```bash
+git clone https://github.com/breachsense/breachsense-plugins
+mkdir -p ~/.agents/skills
+cp -r breachsense-plugins/plugins/breachsense/skills/query ~/.agents/skills/breachsense
+```
+
+To share the skill with your team, commit the same folder to `.agents/skills/` (Codex) or `.github/skills/` (Copilot) in a shared repo.
+
+In Codex, start a new session and ask which skills it has. In Copilot, run `copilot skill list`. You should see `query`.
+
+Copilot asks before it reads files outside your project, opens a URL or runs a command. Approve `https://api.breachsense.com` for the session so it doesn't ask on every query.
 
 ## Set your license key
 
@@ -35,21 +53,21 @@ echo 'export BREACHSENSE_API_KEY=your-license-key-here' >> ~/.zshrc
 source ~/.zshrc
 ```
 
-Restart your Claude Code session afterward. Claude Code reads the environment at startup, so a running session won't pick up the new variable.
+Restart your Claude Code, Codex or Copilot session afterward. They read the environment at startup, so a running session won't pick up the new variable.
 
-### Option 2: memory file
+### Option 2: license file
 
 ```bash
-mkdir -p ~/.claude/breachsense
-echo 'your-license-key-here' > ~/.claude/breachsense/license.md
-chmod 600 ~/.claude/breachsense/license.md
+mkdir -p ~/.config/breachsense
+echo 'your-license-key-here' > ~/.config/breachsense/license.md
+chmod 600 ~/.config/breachsense/license.md
 ```
 
-Use this if you'd rather not touch your shell config.
+Use this if you'd rather not touch your shell config. The older `~/.claude/breachsense/license.md` location still works.
 
 ## Try it
 
-After install, ask Claude things like:
+After install, ask things like:
 
 - *"Show me stealer logs for acme.com from the last 30 days."*
 - *"Any session tokens for our domain on Discord?"*
@@ -61,9 +79,9 @@ After install, ask Claude things like:
 
 ## What you get
 
-Claude will:
-- Pick the right Breachsense endpoint for your question
-- Pull plaintext passwords, fresh hits, and admin-account patterns to the top of the summary
+The assistant will:
+- Tell you which endpoint it's querying, then run it
+- Put plaintext passwords in the summary, mark fresh hits, and point out admin accounts and reused passwords
 - Flag leaked API keys by platform (AWS, GitHub, OpenAI, etc.) and source type
 - Highlight live session tokens (these bypass MFA)
 - Suggest the next useful query (cross-checks, date filters, watchlist setup)
@@ -91,9 +109,9 @@ What it won't do:
 | `/asm` | Attack surface: subdomains, exposed services, phishing domains |
 | `/account` | Watchlist, webhook alerts, test alerts, license rotation |
 
-## Updating the plugin
+## Updating the skill
 
-When a new version ships:
+When a new version ships, in Claude Code:
 
 ```
 /plugin marketplace update breachsense
@@ -101,7 +119,15 @@ When a new version ships:
 /reload-plugins
 ```
 
+For Codex and Copilot, run `git pull` in your clone and copy the `query` folder again.
+
 ## Troubleshooting
+
+**403 with `error code: 1010`**
+Cloudflare blocks the default user agent of Python's built-in `urllib`. Use curl, or send a different `User-Agent` header. The skill tells the assistant to use curl.
+
+**Copilot: "failed to parse YAML frontmatter"**
+You have a version older than 1.3.2. Run `git pull` and copy the folder again.
 
 **"Marketplace file not found"**
 The repo is missing `.claude-plugin/marketplace.json` at the root, or your local marketplace cache is stale. Run `/plugin marketplace update breachsense`.
