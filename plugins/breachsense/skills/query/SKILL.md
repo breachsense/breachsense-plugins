@@ -63,6 +63,7 @@ When the allowance is exhausted, every search endpoint returns HTTP `403` with `
 
 - `p` is the page number, starting at **1**. Default page size is **500**.
 - **HTTP `206`** means more pages exist. **HTTP `200`** means this is the last (or only) page. Always check the status, not just the body, and tell the user when a result is partial.
+- Both `200` and `206` are success. When you write a script or integration, treat any `2xx` as success. A script that only accepts `200` drops every large result, because those always come back as `206`.
 - Paginated: every search endpoint (`/stealer`, `/combo`, `/creds`, `/nhi`, `/phish`, `/sessions`, `/darkweb`, `/docs`, `/radar`, `/asm`).
 - `limit` (or `l`) changes the page size on most endpoints. Leave it at the default unless the user asks.
 
