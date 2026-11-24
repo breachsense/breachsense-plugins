@@ -26,6 +26,13 @@ describe("validate", () => {
 
 describe("dates", () => {
   it("parses YYYYMMDD strings and numbers, unixtime and ISO", () => {
+    expect(parseDate("19700101")).toBeNull();
+    expect(parseDate(19700101)).toBeNull();
+    expect(parseDate(0)).toBeNull();
+    expect(parseDate("0")).toBeNull();
+    expect(parseDate("1970-01-01")).toBeNull();
+    expect(parseDate("1989-12-31")).toBeNull();
+    expect(formatDate(parseDate("19900101")!)).toBe("1990-01-01");
     expect(formatDate(parseDate("20260102")!)).toBe("2026-01-02");
     expect(formatDate(parseDate(20260102)!)).toBe("2026-01-02");
     expect(formatDate(parseDate(1767312000)!)).toBe("2026-01-02");

@@ -212,6 +212,15 @@ describe("download redirect (S3) and body caps", () => {
     expect(ok(new URL("https://evilamazonaws.com/a"))).toBe(false);
   });
 
+  it("default allowlist also accepts https *.linodeobjects.com, with the same suffix protections", async () => {
+    const { downloadHostAllowedDefault: ok } = await import("../src/client");
+    expect(ok(new URL("https://us-east-1.linodeobjects.com/bucket/key?X-Amz-Signature=x"))).toBe(true);
+    expect(ok(new URL("https://bucket.us-east-1.linodeobjects.com/key"))).toBe(true);
+    expect(ok(new URL("https://evil-linodeobjects.com/x"))).toBe(false);
+    expect(ok(new URL("https://linodeobjects.com.evil.net/x"))).toBe(false);
+    expect(ok(new URL("http://us-east-1.linodeobjects.com/x"))).toBe(false);
+  });
+
   it("a storage error after the redirect is a failure that still counts the billed query", async () => {
     const s3 = await startFakeApi(() => ({ status: 403, body: "<Error>AccessDenied</Error>", contentType: "application/xml" }));
     try {
@@ -248,5 +257,25 @@ describe("download redirect (S3) and body caps", () => {
       const r = await client(a2.url, { downloadHostAllowed: local, maxDownloadBytes: 200 }).c.request(download);
       expect(r).toMatchObject({ ok: false, failure: { kind: "too_large", limitBytes: 200 }, cost: { used: 1, unknown: 0 } });
     } finally { await s3.close(); }
+  });
+});
+
+describe("uncounted request class (billing none)", () => {
+  const acct = { path: "/account", params: { action: "list" }, op: "read" as const, billing: "none" as const };
+  it("a non-2xx reply costs nothing", async () => {
+    const a = await serve([{ status: 403, json: { error: "Unmonitored asset" } }]);
+    const r = await client(a.url).c.request(acct);
+    expect(r).toMatchObject({ ok: false, failure: { kind: "http", status: 403 }, cost: { used: 0, unknown: 0 } });
+  });
+  it("a timeout stays unknown", async () => {
+    const a = await serve([{ hang: true }]);
+    const r = await client(a.url).c.request(acct);
+    expect(r).toMatchObject({ ok: false, failure: { kind: "no_response", reason: "timeout" } });
+    expect(r.cost.unknown).toBeGreaterThan(0);
+  });
+  it("a search non-2xx stays unknown", async () => {
+    const a = await serve([{ status: 403, json: { error: "x" } }]);
+    const r = await client(a.url).c.request(search);
+    expect(r.cost).toEqual({ used: 0, unknown: 1 });
   });
 });

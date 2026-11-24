@@ -39,7 +39,7 @@ export interface ClientOptions {
   rateDeadlineMs?: number;
   throttleMs?: number;
   userAgent?: string;
-  /** Hosts a download redirect may go to. Default: https and *.amazonaws.com (S3 presigned URLs). */
+  /** Hosts a download redirect may go to. Default: https and *.amazonaws.com or *.linodeobjects.com (presigned URLs). */
   downloadHostAllowed?: (url: URL) => boolean;
   maxBodyBytes?: number;
   maxDownloadBytes?: number;
@@ -49,7 +49,9 @@ export const MAX_BODY_BYTES = 20 * 1024 * 1024;
 export const MAX_DOWNLOAD_BYTES = 25 * 1024 * 1024;
 
 export function downloadHostAllowedDefault(url: URL): boolean {
-  return url.protocol === "https:" && url.hostname.toLowerCase().endsWith(".amazonaws.com");
+  if (url.protocol !== "https:") return false;
+  const h = url.hostname.toLowerCase();
+  return h.endsWith(".amazonaws.com") || h.endsWith(".linodeobjects.com");
 }
 
 export const USER_AGENT = `breachsense-mcp/${VERSION}`;
@@ -194,6 +196,7 @@ export class BreachsenseClient {
     let plainRetryUsed = false;
     let rateRetries = 0;
     const maxBytes = spec.followDownloadRedirect ? this.maxDownloadBytes : this.maxBodyBytes;
+    const uncounted = spec.billing === "none";
     const addBilling = () => {
       if (free) return;
       if (spec.billing === "billed") cost.used++;
@@ -206,7 +209,7 @@ export class BreachsenseClient {
 
       if (a.kind === "too_large") {
         const ok2xx = a.status >= 200 && a.status < 300;
-        if (ok2xx) addBilling(); else if (!free) cost.unknown++;
+        if (ok2xx) addBilling(); else if (!free && !uncounted) cost.unknown++;
         const failure: Failure = { kind: "too_large", status: a.status, limitBytes: maxBytes };
         return { ok: false, failure, cost, mayHaveTakenEffect: spec.op === "write", retryAt: null };
       }
@@ -222,7 +225,9 @@ export class BreachsenseClient {
         return this.fetchFromStorage(a.location, cost);
       }
 
-      if (a.kind !== "not_sent" && !free) cost.unknown++;
+      // An uncounted endpoint (billing "none") costs nothing for any HTTP reply; no reply stays unknown.
+      const uncountedReply = spec.billing === "none" && a.kind === "response";
+      if (a.kind !== "not_sent" && !free && !uncountedReply) cost.unknown++;
       const failure: Failure = a.kind === "response"
         ? { kind: "http", status: a.status, json: a.json, html: a.html, text: a.text, retryAfterMs: a.retryAfterMs }
         : a;

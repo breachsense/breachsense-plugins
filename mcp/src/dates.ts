@@ -1,6 +1,14 @@
 import { isValidYmd, ymdToDate } from "./validate";
 
+// Placeholders such as 19700101 or epoch 0 show up as dates in live data; treat them as undated.
+const EARLIEST = Date.UTC(1990, 0, 1);
+
 export function parseDate(v: unknown): Date | null {
+  const d = parseRaw(v);
+  return d && !Number.isNaN(d.getTime()) && d.getTime() >= EARLIEST ? d : null;
+}
+
+function parseRaw(v: unknown): Date | null {
   if (typeof v === "number" && Number.isFinite(v)) {
     if (v < 1e8) return isValidYmd(String(v)) ? ymdToDate(String(v)) : null;
     if (v < 1e11) return new Date(v * 1000);
