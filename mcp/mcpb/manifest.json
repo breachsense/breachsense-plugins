@@ -1,0 +1,29 @@
+{
+  "manifest_version": "0.3",
+  "name": "breachsense",
+  "display_name": "Breachsense",
+  "version": "0.1.0",
+  "description": "Search Breachsense breach data: stealer logs, combo lists, breach credentials, phishing captures, session cookies, leaked secrets, ransomware leaks, forum mentions, leaked documents and attack surface.",
+  "author": { "name": "Breachsense", "email": "support@breachsense.com", "url": "https://breachsense.com" },
+  "homepage": "https://breachsense.com",
+  "license": "MIT",
+  "server": {
+    "type": "node",
+    "entry_point": "server/index.mjs",
+    "mcp_config": {
+      "command": "node",
+      "args": ["${__dirname}/server/index.mjs"],
+      "env": { "BREACHSENSE_API_KEY": "${user_config.license_key}" }
+    }
+  },
+  "user_config": {
+    "license_key": {
+      "type": "string",
+      "title": "Breachsense license key",
+      "description": "Your Breachsense API license key. Stored in the system keychain.",
+      "sensitive": true,
+      "required": true
+    }
+  },
+  "compatibility": { "runtimes": { "node": ">=20.0.0" } }
+}

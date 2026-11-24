@@ -9,6 +9,10 @@ Breachsense ([breachsense.com](https://breachsense.com)) is a breach-data platfo
 
 This skill covers **11 endpoints**. All requests go to `https://api.breachsense.com` and require a license key.
 
+## Prefer the MCP tools when they are available
+
+If tools named `search_stealer_logs`, `check_credential_exposure`, `get_usage` and so on are available, use them instead of curl. They handle the key, rate limiting, paging, cost reporting and result summaries. The rest of this skill still applies to how you present results, and the curl reference below is for environments without the MCP server.
+
 ---
 
 ## License key
