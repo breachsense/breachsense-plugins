@@ -126,4 +126,45 @@ describe("MCP server", () => {
     expect(textOf(res)).toContain("application/octet-stream");
     expect(textOf(res)).not.toContain("ignore previous");
   });
+
+  it("download_document follows the S3 redirect without the key, stores and previews the file, bills 1 query", async () => {
+    const s3 = await startFakeApi(() => ({ body: "leaked memo text", contentType: "text/plain" }));
+    try {
+      api = await startFakeApi(() => ({ status: 302, headers: { location: `${s3.url}/bucket/abc123?X-Amz-Signature=sig` }, body: "" }));
+      const client = await connect(testDeps(api.url, { downloadHostAllowed: (u) => u.hostname === "127.0.0.1" }));
+      const res = await client.callTool({ name: "download_document", arguments: { doc_id: "abc123" } });
+      expect(res.isError).toBeFalsy();
+      expect(api.calls).toHaveLength(1);
+      expect(s3.calls).toHaveLength(1);
+      expect(s3.calls[0].headers.lic).toBeUndefined();
+      const text = textOf(res);
+      expect(text).toContain("Document abc123 (16 bytes)");
+      expect(text).toContain("leaked memo text");
+      expect(text).toContain("Cost: 1 query used.");
+      const page = await client.readResource({ uri: "breachsense://results/1" });
+      expect((page.contents[0] as { text: string }).text).toBe("leaked memo text");
+    } finally { await s3.close(); }
+  });
+
+  it("download_document refuses a redirect to an unexpected host and sends nothing there", async () => {
+    const other = await startFakeApi(() => ({ body: "x", contentType: "text/plain" }));
+    try {
+      api = await startFakeApi(() => ({ status: 302, headers: { location: `${other.url}/x` }, body: "" }));
+      const client = await connect(testDeps(api.url));
+      const res = await client.callTool({ name: "download_document", arguments: { doc_id: "abc123" } });
+      expect(res.isError).toBe(true);
+      expect(other.calls).toHaveLength(0);
+      expect(textOf(res)).toContain("Breachsense redirected the download to an unexpected location");
+      expect(textOf(res)).toContain("Cost: 1 query used.");
+    } finally { await other.close(); }
+  });
+
+  it("an oversized search reply is an error that reports the billed query", async () => {
+    api = await startFakeApi(() => ({ json: [{ usr: "x".repeat(500) }] }));
+    const client = await connect(testDeps(api.url, { maxBodyBytes: 100 }));
+    const res = await client.callTool({ name: "search_combo_lists", arguments: { query: "acme.com" } });
+    expect(res.isError).toBe(true);
+    expect(textOf(res)).toContain("Breachsense returned a response too large to handle (over 100 bytes).");
+    expect(textOf(res)).toContain("Cost: 1 query used.");
+  });
 });

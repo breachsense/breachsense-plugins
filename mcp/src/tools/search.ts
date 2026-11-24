@@ -70,7 +70,7 @@ export function registerDownloadTool(server: McpServer, deps: Deps): void {
     annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
   }, async ({ doc_id }) => {
     if (!deps.client) return setupResult();
-    const r = await call(deps, { path: "/docs", params: { download_doc_id: doc_id }, op: "read", billing: BILLING.download });
+    const r = await call(deps, { path: "/docs", params: { download_doc_id: doc_id }, op: "read", billing: BILLING.download, followDownloadRedirect: true });
     if (!r.ok) return failureResult(deps, r);
     const rawType = r.contentType.split(";")[0].trim();
     const type = /^[\w.+-]+\/[\w.+-]+$/.test(rawType) ? rawType : "application/octet-stream";
