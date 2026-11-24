@@ -11,7 +11,10 @@ describe("normalizeRows / countFrom", () => {
   it("accepts arrays and common wrappers", () => {
     expect(normalizeRows([{ a: 1 }, "junk"])).toEqual([{ a: 1 }]);
     expect(normalizeRows({ results: [{ a: 1 }] })).toEqual([{ a: 1 }]);
-    expect(normalizeRows({ cnt: 3 })).toEqual([]);
+    expect(normalizeRows({ cnt: 3 })).toBeNull();
+    expect(normalizeRows(undefined)).toBeNull();
+    expect(normalizeRows({ results: "x" })).toBeNull();
+    expect(normalizeRows([])).toEqual([]);
   });
   it("reads counts", () => {
     expect(countFrom({ cnt: 3 })).toBe(3);

@@ -21,6 +21,7 @@ export async function fetchSearch(deps: Deps, ep: SearchEndpoint<any>, built: Bu
     return { ok: true, shaped: null, count: n, partial: false, cost: r.cost, uri: null };
   }
   const rows = normalizeRows(r.json);
+  if (rows === null) return { ok: false, fail: { ok: false, failure: { kind: "not_sent", code: "UNPARSEABLE_ROWS" }, cost: r.cost, mayHaveTakenEffect: false, retryAt: null }, cost: r.cost };
   const uri = rows.length ? deps.store.put({ mimeType: "application/json", text: JSON.stringify(rows) }) : null;
   const shaped = summarize({ display: ep.display, rows, query: built.query, page, partial: r.partial, today: deps.today(), resultUri: uri });
   return { ok: true, shaped, count: null, partial: r.partial, cost: r.cost, uri };
@@ -42,8 +43,10 @@ export function registerSearchTools(server: McpServer, deps: Deps): void {
       const page = args.page ?? 1;
       const o = await fetchSearch(deps, ep, built, page);
       if (!o.ok) {
-        if (o.fail.failure.kind === "not_sent" && o.fail.failure.code === "UNPARSEABLE_COUNT") {
-          return errorResult(`Breachsense returned an unexpected response, so the count is unavailable.\n${costLine(o.cost, deps.costs.total())}`);
+        const f = o.fail.failure;
+        if (f.kind === "not_sent" && (f.code === "UNPARSEABLE_COUNT" || f.code === "UNPARSEABLE_ROWS")) {
+          const what = f.code === "UNPARSEABLE_COUNT" ? "count is" : "results are";
+          return errorResult(`Breachsense returned an unexpected response, so the ${what} unavailable.\n${costLine(o.cost, deps.costs.total())}`);
         }
         return failureResult(deps, o.fail);
       }

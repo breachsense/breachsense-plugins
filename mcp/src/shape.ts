@@ -4,7 +4,8 @@ import type { Display, Row } from "./endpoints/types";
 export const TOP_N = 25;
 const MAX_FIELD = 300;
 
-export function normalizeRows(json: unknown): Row[] {
+/** Rows from a JSON array or an object with a known array key; null for any other shape. */
+export function normalizeRows(json: unknown): Row[] | null {
   const isRow = (v: unknown): v is Row => !!v && typeof v === "object" && !Array.isArray(v);
   if (Array.isArray(json)) return json.filter(isRow);
   if (isRow(json)) {
@@ -13,7 +14,7 @@ export function normalizeRows(json: unknown): Row[] {
       if (Array.isArray(v)) return v.filter(isRow);
     }
   }
-  return [];
+  return null;
 }
 
 export function countFrom(json: unknown): number | null {

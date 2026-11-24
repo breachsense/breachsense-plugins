@@ -67,4 +67,32 @@ describe("check_credential_exposure", () => {
     expect(q["/combo"]).toBe("s=acme.com&date=20260101");
     expect(q["/phish"]).toBe("s=%40acme.com&date=20260101");
   });
+
+  it("each structured source carries its own cost", async () => {
+    const res = await run({ "/phish": { hang: true } });
+    const sources = (res.structuredContent as { sources: { cost: unknown }[] }).sources;
+    expect(sources.map((x) => x.cost)).toEqual([
+      { used: 1, unknown: 0 }, { used: 1, unknown: 0 }, { used: 1, unknown: 0 }, { used: 0, unknown: 2 },
+    ]);
+  });
+
+  it("an unrecognised reply is a failed source, not zero matches", async () => {
+    const res = await run({ "/combo": { json: { weird: true } }, "/creds": { body: "not json", contentType: "text/plain" } });
+    const text = textOf(res);
+    expect(text).toContain("The second source (combo lists) returned an unexpected response.");
+    expect(text).toContain("The third source (breach credentials) returned an unexpected response.");
+    expect(text).toContain("No matches in the two sources checked.");
+    expect(text).toContain("Cost: 4 queries used.");
+    expect(res.structuredContent).toMatchObject({ sources: [
+      { status: "completed" }, { source: "combo lists", status: "failed", cost: { used: 1, unknown: 0 } },
+      { source: "breach credentials", status: "failed" }, { status: "completed" },
+    ] });
+  });
+
+  it("failure lines never end in a double period", async () => {
+    const res = await run({ "/combo": { status: 403, json: { message: "Your plan does not include /combo." } } });
+    const text = textOf(res);
+    expect(text).toContain("The second source (combo lists) returned an error: This feature isn't included in the license's plan. Contact support@breachsense.com to add it.");
+    expect(text).not.toContain("..");
+  });
 });

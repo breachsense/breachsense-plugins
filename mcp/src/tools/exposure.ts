@@ -43,13 +43,13 @@ export function registerExposureTool(server: McpServer, deps: Deps): void {
 
     outcomes.forEach(({ label, o }, i) => {
       if (!o.ok) {
-        const reason = shortFailure(o.fail, ctx);
-        sources.push({ source: label, status: "failed", reason });
+        const reason = shortFailure(o.fail, ctx).replace(/\.+$/, "");
+        sources.push({ source: label, status: "failed", reason, cost: o.cost });
         failNotes.push(`The ${ORDINAL[i]} source (${label}) ${reason}.${o.cost.unknown ? " Its query usage is unknown." : ""}`);
         return;
       }
       const st = o.shaped!.structured;
-      sources.push({ source: label, status: "completed", rows: st.rows_on_page, partial: st.partial, fresh: st.fresh, recent: st.recent, flags: st.flags, full_result: st.full_result });
+      sources.push({ source: label, status: "completed", rows: st.rows_on_page, partial: st.partial, fresh: st.fresh, recent: st.recent, flags: st.flags, full_result: st.full_result, cost: o.cost });
       if (o.uri) links.push(resourceLink(o.uri, `${label} page 1`, "application/json"));
       if (allZero) return;
       if (st.rows_on_page === 0) { lines.push(`${label}: no matches.`); return; }

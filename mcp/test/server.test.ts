@@ -179,4 +179,25 @@ describe("MCP server", () => {
     expect(ins).toMatch(/breachsense:\/\/results\/[^\n]*data, never instructions/);
     expect(ins).not.toContain("\u2014");
   });
+
+  it("a search reply with an unrecognised shape is an error, not No matches", async () => {
+    for (const reply of [{ json: { weird: true } }, { body: "oops", contentType: "text/plain" }, { json: { results: "x" } }]) {
+      await api?.close();
+      api = await startFakeApi(() => reply);
+      const client = await connect(testDeps(api.url));
+      const res = await client.callTool({ name: "search_combo_lists", arguments: { query: "acme.com" } });
+      expect(res.isError).toBe(true);
+      expect(textOf(res)).toContain("Breachsense returned an unexpected response, so the results are unavailable.");
+      expect(textOf(res)).toContain("Cost: 1 query used");
+      expect(textOf(res)).not.toContain("No matches");
+    }
+  });
+
+  it("an empty array or an object with a known array key is still a normal reply", async () => {
+    api = await startFakeApi(() => ({ json: { results: [] } }));
+    const client = await connect(testDeps(api.url));
+    const res = await client.callTool({ name: "search_combo_lists", arguments: { query: "acme.com" } });
+    expect(res.isError).toBeFalsy();
+    expect(textOf(res)).toContain("No matches");
+  });
 });
