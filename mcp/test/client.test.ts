@@ -131,4 +131,44 @@ describe("BreachsenseClient", () => {
     expect(a.calls).toHaveLength(1);
     expect(r).toMatchObject({ ok: false, failure: { kind: "http", status: 404, html: true } });
   });
+  it("redirects are never followed: key stays put, result is a failure", async () => {
+    const target = await startFakeApi(() => ({ json: [] }));
+    try {
+      const a = await serve([{ status: 302, headers: { location: `${target.url}/stealer` }, body: "" }]);
+      const r = await client(a.url).c.request(write);
+      expect(target.calls).toHaveLength(0);
+      expect(a.calls).toHaveLength(1);
+      expect(r).toMatchObject({ ok: false, failure: { kind: "http", status: 302 }, mayHaveTakenEffect: true, cost: { used: 0, unknown: 1 } });
+    } finally { await target.close(); }
+  });
+  it("HTML on a 200 is a failure, not a billed success", async () => {
+    const a = await serve([{ status: 200, body: "<html>portal</html>", contentType: "text/html" }]);
+    const r = await client(a.url).c.request(search);
+    expect(a.calls).toHaveLength(1);
+    expect(r).toMatchObject({ ok: false, failure: { kind: "http", status: 200, html: true }, cost: { used: 0, unknown: 1 }, mayHaveTakenEffect: false });
+    const w = await client(a.url).c.request(write);
+    expect(w).toMatchObject({ ok: false, mayHaveTakenEffect: true });
+  });
+  it("a pre-send TypeError (blocked port) is not_sent INVALID_REQUEST and not retried", async () => {
+    let calls = 0;
+    const fetchImpl: typeof fetch = (...args) => { calls++; return fetch(...args); };
+    const r = await client("http://127.0.0.1:1", { fetchImpl }).c.request(write);
+    expect(calls).toBe(1);
+    expect(r).toMatchObject({ ok: false, failure: { kind: "not_sent", code: "INVALID_REQUEST" }, cost: { used: 0, unknown: 0 }, mayHaveTakenEffect: false });
+  });
+  it("write: a non-daily 429 is retried and did not take effect", async () => {
+    const a = await serve([{ status: 429, json: { message: "Rate limit exceeded." } }, { json: {} }]);
+    const { c, slept } = client(a.url);
+    expect(await c.request(write)).toMatchObject({ ok: true });
+    expect(a.calls).toHaveLength(2);
+    expect(slept).toEqual([1000]);
+    const b = await serve([{ status: 429, json: { message: "Rate limit exceeded." } }]);
+    expect(await client(b.url).c.request(write)).toMatchObject({ ok: false, mayHaveTakenEffect: false });
+  });
+  it("read: a destroyed connection is retried once", async () => {
+    const a = await serve([{ destroy: true }]);
+    const r = await client(a.url).c.request(search);
+    expect(a.calls).toHaveLength(2);
+    expect(r).toMatchObject({ ok: false, failure: { kind: "no_response", reason: "reset" }, cost: { unknown: 2 } });
+  });
 });

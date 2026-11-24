@@ -70,6 +70,15 @@ function errorCode(err: unknown): string | null {
   return null;
 }
 
+// Thrown by fetch before any I/O: bad header value, unparseable URL, blocked port.
+function isInvalidRequest(err: unknown): boolean {
+  if (!(err instanceof TypeError)) return false;
+  const cause = (err as { cause?: unknown }).cause;
+  if (cause === undefined) return true;
+  const c = cause as { code?: unknown; message?: unknown };
+  return c.code === "ERR_INVALID_URL" || c.message === "bad port";
+}
+
 function retryAfterMs(h: string | null, now: number): number | null {
   if (!h) return null;
   if (/^\d+$/.test(h.trim())) return Number(h) * 1000;
@@ -106,7 +115,7 @@ export class BreachsenseClient {
       const res = await this.fetchImpl(url, {
         headers: { lic: this.opts.key, "user-agent": this.ua, accept: "application/json" },
         signal: AbortSignal.timeout(this.timeoutMs),
-        redirect: "follow",
+        redirect: "manual",
       });
       const bytes = new Uint8Array(await res.arrayBuffer());
       const contentType = res.headers.get("content-type") ?? "";
@@ -116,6 +125,7 @@ export class BreachsenseClient {
       const html = /text\/html/i.test(contentType) || /^\s*<(!doctype|html)/i.test(text);
       return { kind: "response", status: res.status, json, text, bytes, contentType, html, retryAfterMs: retryAfterMs(res.headers.get("retry-after"), this.now()) };
     } catch (err) {
+      if (isInvalidRequest(err)) return { kind: "not_sent", code: "INVALID_REQUEST" };
       const code = errorCode(err);
       if (code && NOT_SENT_CODES.has(code)) return { kind: "not_sent", code };
       const name = (err as { name?: string })?.name;
@@ -135,7 +145,7 @@ export class BreachsenseClient {
       await this.throttle.wait();
       const a = await this.attempt(url);
 
-      if (a.kind === "response" && a.status >= 200 && a.status < 300) {
+      if (a.kind === "response" && a.status >= 200 && a.status < 300 && !a.html) {
         if (!free) {
           if (spec.billing === "billed") cost.used++;
           else if (spec.billing === "unknown") cost.unknown++;
@@ -160,10 +170,12 @@ export class BreachsenseClient {
 
       const serverError = failure.kind === "http" && failure.status >= 500;
       const ambiguous = failure.kind === "no_response" || serverError;
-      const retryable = failure.kind === "not_sent" || (spec.op === "read" && ambiguous);
+      // Delivered but unusable (redirect, HTML on 2xx): never retried, but a write may have landed.
+      const deliveredUnusable = failure.kind === "http" && (failure.status < 500 && (failure.status < 400 || failure.html));
+      const retryable = (failure.kind === "not_sent" && failure.code !== "INVALID_REQUEST") || (spec.op === "read" && ambiguous);
       if (retryable && !plainRetryUsed) { plainRetryUsed = true; continue; }
 
-      return { ok: false, failure, cost, mayHaveTakenEffect: spec.op === "write" && ambiguous, retryAt: null };
+      return { ok: false, failure, cost, mayHaveTakenEffect: spec.op === "write" && (ambiguous || deliveredUnusable), retryAt: null };
     }
   }
 }
