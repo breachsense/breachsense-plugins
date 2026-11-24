@@ -4,6 +4,7 @@ import { loadLicense, resolveBaseUrl } from "./config";
 import { CostTracker } from "./cost";
 import { INSTRUCTIONS } from "./instructions";
 import { ResultStore } from "./results";
+import { registerAccountTools } from "./tools/account";
 import type { Deps } from "./tools/common";
 import { registerExposureTool } from "./tools/exposure";
 import { registerDownloadTool, registerSearchTools } from "./tools/search";
@@ -22,6 +23,7 @@ export function createServer(deps: Deps): McpServer {
   registerSearchTools(server, deps);
   registerDownloadTool(server, deps);
   registerExposureTool(server, deps);
+  registerAccountTools(server, deps);
 
   server.registerResource(
     "results",
