@@ -255,7 +255,7 @@ describe("download redirect (S3) and body caps", () => {
       expect(big).toMatchObject({ ok: true });
       const a2 = await serve([{ status: 302, headers: { location: `${s3.url}/b` }, body: "" }]);
       const r = await client(a2.url, { downloadHostAllowed: local, maxDownloadBytes: 200 }).c.request(download);
-      expect(r).toMatchObject({ ok: false, failure: { kind: "too_large", limitBytes: 200 }, cost: { used: 1, unknown: 0 } });
+      expect(r).toMatchObject({ ok: false, failure: { kind: "storage_too_large", url: `${s3.url}/b`, bytes: 300, limitBytes: 200 }, cost: { used: 1, unknown: 0 } });
     } finally { await s3.close(); }
   });
 });

@@ -12,6 +12,8 @@ export type Failure =
   | { kind: "http"; status: number; json: unknown; html: boolean; text: string; retryAfterMs: number | null }
   /** The body was bigger than we are willing to hold in memory; reading stopped at the cap. */
   | { kind: "too_large"; status: number; limitBytes: number }
+  /** The storage file is over the download cap; reading stopped. `bytes` is the declared size, null when unknown. */
+  | { kind: "storage_too_large"; url: string; bytes: number | null; limitBytes: number }
   /** A download redirect pointed somewhere other than the allowed storage hosts; it was not followed. */
   | { kind: "redirect_refused" }
   /** The storage server a download was redirected to did not return the file. */
@@ -132,7 +134,7 @@ async function readCapped(res: Response, max: number): Promise<Uint8Array | null
 
 type Attempt =
   | { kind: "response"; status: number; json: unknown; text: string; bytes: Uint8Array; contentType: string; html: boolean; retryAfterMs: number | null; location: string | null }
-  | { kind: "too_large"; status: number }
+  | { kind: "too_large"; status: number; declared: number | null }
   | { kind: "not_sent"; code: string }
   | { kind: "no_response"; reason: "timeout" | "reset" };
 
@@ -172,7 +174,11 @@ export class BreachsenseClient {
         : { "user-agent": this.ua };
       const res = await this.fetchImpl(url, { headers, signal: AbortSignal.timeout(this.timeoutMs), redirect: "manual" });
       const bytes = await readCapped(res, maxBytes);
-      if (!bytes) return { kind: "too_large", status: res.status };
+      if (!bytes) {
+        const d = res.headers.get("content-length");
+        const declared = d !== null && d.trim() !== "" && Number.isFinite(Number(d)) ? Number(d) : null;
+        return { kind: "too_large", status: res.status, declared };
+      }
       const contentType = res.headers.get("content-type") ?? "";
       const text = new TextDecoder().decode(bytes);
       let json: unknown = undefined;
@@ -260,7 +266,7 @@ export class BreachsenseClient {
     try { target = new URL(location ?? ""); } catch { return fail({ kind: "redirect_refused" }); }
     if (!this.downloadHostAllowed(target)) return fail({ kind: "redirect_refused" });
     const b = await this.attempt(target.href, false, this.maxDownloadBytes);
-    if (b.kind === "too_large") return fail({ kind: "too_large", status: b.status, limitBytes: this.maxDownloadBytes });
+    if (b.kind === "too_large") return fail({ kind: "storage_too_large", url: target.href, bytes: b.declared, limitBytes: this.maxDownloadBytes });
     if (b.kind !== "response") return fail({ kind: "storage", status: null });
     if (b.status < 200 || b.status >= 300) return fail({ kind: "storage", status: b.status });
     return { ok: true, status: b.status, json: b.json, text: b.text, bytes: b.bytes, contentType: b.contentType, partial: false, cost };

@@ -5,6 +5,8 @@ export interface FakeRequest { path: string; query: string; headers: IncomingHtt
 export interface FakeReply {
   status?: number; json?: unknown; body?: string; contentType?: string;
   headers?: Record<string, string>; hang?: boolean; destroy?: boolean;
+  /** Send these pieces as a chunked reply with no Content-Length. */
+  chunks?: string[];
 }
 export interface FakeApi { url: string; calls: FakeRequest[]; close(): Promise<void> }
 
@@ -17,8 +19,14 @@ export async function startFakeApi(handler: (req: FakeRequest) => FakeReply | Pr
     const reply = await handler(r);
     if (reply.hang) return;
     if (reply.destroy) { req.socket.destroy(); return; }
+    if (reply.chunks) {
+      res.writeHead(reply.status ?? 200, { "content-type": reply.contentType ?? "application/octet-stream", ...reply.headers });
+      for (const c of reply.chunks) res.write(c);
+      res.end();
+      return;
+    }
     const body = reply.body ?? (reply.json === undefined ? "" : JSON.stringify(reply.json));
-    res.writeHead(reply.status ?? 200, { "content-type": reply.contentType ?? "application/json", ...reply.headers });
+    res.writeHead(reply.status ?? 200, { "content-type": reply.contentType ?? "application/json", "content-length": String(Buffer.byteLength(body)), ...reply.headers });
     res.end(body);
   });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));

@@ -17,7 +17,7 @@ function num(v: unknown): number | null {
   return typeof v === "number" && Number.isFinite(v) ? v : null;
 }
 
-function mb(bytes: number): string {
+export function mb(bytes: number): string {
   return bytes >= 1024 * 1024 ? `${Math.floor(bytes / (1024 * 1024))} MB` : `${bytes} bytes`;
 }
 
@@ -30,6 +30,7 @@ export function describeFailure(r: Fail, ctx: ErrorContext): string {
   const f = r.failure;
   const tail = r.mayHaveTakenEffect ? MAYBE_APPLIED : "";
   if (f.kind === "too_large") return `Breachsense returned a response too large to handle (over ${mb(f.limitBytes)}).` + tail;
+  if (f.kind === "storage_too_large") return `The document is too large to load (over ${mb(f.limitBytes)}).`;
   if (f.kind === "redirect_refused") return "Breachsense redirected the download to an unexpected location, so it was not followed.";
   if (f.kind === "storage") {
     return f.status === null

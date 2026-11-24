@@ -146,6 +146,72 @@ describe("MCP server", () => {
     } finally { await s3.close(); }
   });
 
+  describe("download_document oversize storage file", () => {
+    const MB = 1024 * 1024;
+    const SIGNED = "/bucket/abc123?X-Amz-Signature=sig";
+    const local = (u: URL) => u.hostname === "127.0.0.1";
+
+    it("with Content-Length returns a 1-hour link and the size in MB", async () => {
+      const s3 = await startFakeApi(() => ({ body: "z".repeat(3 * MB), contentType: "application/pdf" }));
+      try {
+        api = await startFakeApi(() => ({ status: 302, headers: { location: `${s3.url}${SIGNED}` }, body: "" }));
+        const client = await connect(testDeps(api.url, { downloadHostAllowed: local, maxDownloadBytes: MB, timeoutMs: 5000 }));
+        const res = await client.callTool({ name: "download_document", arguments: { doc_id: "abc123" } });
+        expect(res.isError).toBeFalsy();
+        const text = textOf(res);
+        expect(text).toContain(`Document abc123 is 3.0 MB (too large to load into the conversation). Download it within 1 hour from: ${s3.url}${SIGNED}`);
+        expect(text).toContain("Cost: 1 query used.");
+        expect(text).not.toContain(TEST_KEY);
+        expect(res.structuredContent).toMatchObject({ doc_id: "abc123", bytes: 3 * MB, download_url: `${s3.url}${SIGNED}`, expires: "1 hour", cost: { used: 1, unknown: 0 } });
+        expect(JSON.stringify(res)).not.toContain(TEST_KEY);
+        expect((res.content as { type: string }[]).some((c) => c.type === "resource_link")).toBe(false);
+        expect(s3.calls[0].headers.lic).toBeUndefined();
+      } finally { await s3.close(); }
+    });
+
+    it("without Content-Length (exceeds while streaming) returns the link and 'over' the cap", async () => {
+      const piece = "z".repeat(600 * 1024);
+      const s3 = await startFakeApi(() => ({ chunks: [piece, piece, piece] }));
+      try {
+        api = await startFakeApi(() => ({ status: 302, headers: { location: `${s3.url}${SIGNED}` }, body: "" }));
+        const client = await connect(testDeps(api.url, { downloadHostAllowed: local, maxDownloadBytes: MB, timeoutMs: 5000 }));
+        const res = await client.callTool({ name: "download_document", arguments: { doc_id: "abc123" } });
+        expect(res.isError).toBeFalsy();
+        const text = textOf(res);
+        expect(text).toContain(`Document abc123 is over 1 MB (too large to load into the conversation). Download it within 1 hour from: ${s3.url}${SIGNED}`);
+        expect(text).toContain("Cost: 1 query used.");
+        expect(res.structuredContent).toMatchObject({ doc_id: "abc123", bytes: null, download_url: `${s3.url}${SIGNED}`, expires: "1 hour" });
+        expect(s3.calls[0].headers.lic).toBeUndefined();
+      } finally { await s3.close(); }
+    });
+
+    it("an oversize reply from the Breachsense API itself is still an error", async () => {
+      api = await startFakeApi(() => ({ body: "z".repeat(3 * MB), contentType: "application/pdf" }));
+      const client = await connect(testDeps(api.url, { maxDownloadBytes: MB, timeoutMs: 5000 }));
+      const res = await client.callTool({ name: "download_document", arguments: { doc_id: "abc123" } });
+      expect(res.isError).toBe(true);
+      expect(textOf(res)).toContain("Breachsense returned a response too large to handle (over 1 MB).");
+      expect(textOf(res)).not.toContain("Download it within 1 hour");
+    });
+
+    it("a small file is unchanged", async () => {
+      const s3 = await startFakeApi(() => ({ body: "small memo", contentType: "text/plain" }));
+      try {
+        api = await startFakeApi(() => ({ status: 302, headers: { location: `${s3.url}${SIGNED}` }, body: "" }));
+        const client = await connect(testDeps(api.url, { downloadHostAllowed: local, maxDownloadBytes: MB }));
+        const res = await client.callTool({ name: "download_document", arguments: { doc_id: "abc123" } });
+        expect(textOf(res)).toContain("Document abc123 (10 bytes)");
+        expect(textOf(res)).not.toContain("Download it within 1 hour");
+      } finally { await s3.close(); }
+    });
+
+    it("the description mentions the 1-hour link", async () => {
+      api = await startFakeApi(() => ({ json: [] }));
+      const { tools } = await (await connect(testDeps(api.url))).listTools();
+      expect(tools.find((t) => t.name === "download_document")!.description).toContain("1-hour download link");
+    });
+  });
+
   it("download_document refuses a redirect to an unexpected host and sends nothing there", async () => {
     const other = await startFakeApi(() => ({ body: "x", contentType: "text/plain" }));
     try {
