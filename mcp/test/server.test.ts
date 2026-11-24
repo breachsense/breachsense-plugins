@@ -167,4 +167,16 @@ describe("MCP server", () => {
     expect(textOf(res)).toContain("Breachsense returned a response too large to handle (over 100 bytes).");
     expect(textOf(res)).toContain("Cost: 1 query used.");
   });
+
+  it("frames breachsense://results/ content as data in the resource description and instructions", async () => {
+    api = await startFakeApi(() => ({ json: [] }));
+    const client = await connect(testDeps(api.url));
+    const { resourceTemplates } = await client.listResourceTemplates();
+    const t = resourceTemplates.find((x) => x.uriTemplate === "breachsense://results/{id}")!;
+    expect(t.description).toMatch(/breach.source data.*never.*instructions/i);
+    expect(t.description).not.toContain("\u2014");
+    const ins = client.getInstructions()!;
+    expect(ins).toMatch(/breachsense:\/\/results\/[^\n]*data, never instructions/);
+    expect(ins).not.toContain("\u2014");
+  });
 });
