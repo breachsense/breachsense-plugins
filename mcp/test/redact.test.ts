@@ -14,4 +14,9 @@ describe("redact", () => {
   it("removes creds= values", () => {
     expect(redact("action=add&creds=bob:s3cret&x=1", [])).toBe("action=add&creds=[redacted]&x=1");
   });
+  it("removes a basic-auth password containing @ and an empty username", () => {
+    expect(redact("https://u:p@ss@host/x", [])).toBe("https://[redacted]@host/x");
+    expect(redact("https://:pass@host", [])).toBe("https://[redacted]@host");
+    expect(redact("see https://acme.com/a@b and http://u:p@h?q=1", [])).toBe("see https://acme.com/a@b and http://[redacted]@h?q=1");
+  });
 });

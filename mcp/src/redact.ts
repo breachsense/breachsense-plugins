@@ -1,4 +1,5 @@
-const URL_BASIC_AUTH = /(https?:\/\/)[^\s/@:]+:[^\s/@]+@/gi;
+// Greedy to the last @ before the path, query or fragment, so a password containing @ is removed whole.
+const URL_BASIC_AUTH = /(https?:\/\/)[^\s\/?#]*@/gi;
 const CREDS_PARAM = /(creds=)[^&\s"']+/gi;
 
 /** Remove secrets (license key, webhook basic-auth) from any text before it leaves the process. */
