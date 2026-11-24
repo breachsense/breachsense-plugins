@@ -37060,7 +37060,11 @@ var BreachsenseClient = class {
       const headers = withKey ? { lic: this.opts.key, "user-agent": this.ua, accept: "application/json" } : { "user-agent": this.ua };
       const res = await this.fetchImpl(url2, { headers, signal: AbortSignal.timeout(this.timeoutMs), redirect: "manual" });
       const bytes = await readCapped(res, maxBytes);
-      if (!bytes) return { kind: "too_large", status: res.status };
+      if (!bytes) {
+        const d = res.headers.get("content-length");
+        const declared = d !== null && d.trim() !== "" && Number.isFinite(Number(d)) ? Number(d) : null;
+        return { kind: "too_large", status: res.status, declared };
+      }
       const contentType = res.headers.get("content-type") ?? "";
       const text = new TextDecoder().decode(bytes);
       let json2 = void 0;
@@ -37144,7 +37148,7 @@ var BreachsenseClient = class {
     }
     if (!this.downloadHostAllowed(target)) return fail({ kind: "redirect_refused" });
     const b = await this.attempt(target.href, false, this.maxDownloadBytes);
-    if (b.kind === "too_large") return fail({ kind: "too_large", status: b.status, limitBytes: this.maxDownloadBytes });
+    if (b.kind === "too_large") return fail({ kind: "storage_too_large", url: target.href, bytes: b.declared, limitBytes: this.maxDownloadBytes });
     if (b.kind !== "response") return fail({ kind: "storage", status: null });
     if (b.status < 200 || b.status >= 300) return fail({ kind: "storage", status: b.status });
     return { ok: true, status: b.status, json: b.json, text: b.text, bytes: b.bytes, contentType: b.contentType, partial: false, cost };
@@ -37281,6 +37285,7 @@ function describeFailure(r, ctx) {
   const f = r.failure;
   const tail = r.mayHaveTakenEffect ? MAYBE_APPLIED : "";
   if (f.kind === "too_large") return `Breachsense returned a response too large to handle (over ${mb(f.limitBytes)}).` + tail;
+  if (f.kind === "storage_too_large") return `The document is too large to load (over ${mb(f.limitBytes)}).`;
   if (f.kind === "redirect_refused") return "Breachsense redirected the download to an unexpected location, so it was not followed.";
   if (f.kind === "storage") {
     return f.status === null ? "The document could not be fetched from Breachsense storage (no reply). Try again." : `The document could not be fetched from Breachsense storage (HTTP ${f.status}). The download link may have expired; try again.`;
@@ -38103,14 +38108,26 @@ var PREVIEW_CHARS = 4e3;
 function registerDownloadTool(server, deps) {
   server.registerTool("download_document", {
     title: "Download a leaked document",
-    description: "Download one leaked document by doc_id (from search_documents). Always costs 1 query. Shows a text preview and keeps the full file as a resource for this session.",
+    description: "Download one leaked document by doc_id (from search_documents). Always costs 1 query. Shows a text preview and keeps the full file as a resource for this session. Files too large to load come back as a 1-hour download link instead.",
     inputSchema: { doc_id: external_exports.string().trim().min(1).max(128).regex(/^[A-Za-z0-9._:-]+$/, "must be a doc_id from search_documents") },
     outputSchema: accountOutput,
     annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true }
   }, async ({ doc_id }) => {
     if (!deps.client) return setupResult();
     const r = await call(deps, { path: "/docs", params: { download_doc_id: doc_id }, op: "read", billing: BILLING.download, followDownloadRedirect: true });
-    if (!r.ok) return failureResult(deps, r);
+    if (!r.ok) {
+      const f = r.failure;
+      if (f.kind === "storage_too_large") {
+        const size = f.bytes !== null ? `${(f.bytes / (1024 * 1024)).toFixed(1)} MB` : `over ${mb(f.limitBytes)}`;
+        const url2 = redact(f.url, deps.secrets);
+        return okResult(
+          `Document ${doc_id} is ${size} (too large to load into the conversation). Download it within 1 hour from: ${url2}
+${costLine(r.cost, deps.costs.total())}`,
+          { doc_id, bytes: f.bytes, download_url: url2, expires: "1 hour", cost: r.cost }
+        );
+      }
+      return failureResult(deps, r);
+    }
     const rawType = r.contentType.split(";")[0].trim();
     const type = /^[\w.+-]+\/[\w.+-]+$/.test(rawType) ? rawType : "application/octet-stream";
     const textual = /^(text\/|application\/(json|xml|csv))/i.test(type);
