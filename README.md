@@ -71,7 +71,13 @@ The plugin now includes a Breachsense MCP server, so Claude can call typed tools
 
 **Claude Code:** installing or updating the plugin (`/plugin install breachsense@breachsense`) sets up the server automatically. Run `/mcp` to confirm `breachsense` is connected.
 
-**Claude Desktop:** download `breachsense.mcpb` from the latest release, open it, and enter your license key when asked. Desktop keeps the key in your system keychain.
+**Claude Desktop:** build the Desktop extension from this repo (needs Node.js 20 or newer):
+
+```bash
+cd mcp && npm ci && npm run build && npx -y @anthropic-ai/mcpb@2.1.2 pack dist-mcpb breachsense.mcpb
+```
+
+Then open `mcp/breachsense.mcpb` and enter your license key when asked. Desktop keeps the key in your system keychain.
 
 **Other MCP clients:** run `node /path/to/plugins/breachsense/mcp/server.mjs` as a stdio server with `BREACHSENSE_API_KEY` set.
 
