@@ -24,6 +24,11 @@ export function countFrom(json: unknown): number | null {
   return null;
 }
 
+/** True when the API flagged the count as an estimate (`cnt_approximated`, stealer and combo). */
+export function isApproximate(json: unknown): boolean {
+  return !!json && typeof json === "object" && (json as Record<string, unknown>).cnt_approximated === true;
+}
+
 /** Prevent row content from closing or opening the data block. */
 export function escapeData(s: string): string {
   return s.replace(/<(\/?)breachsense_data/gi, "&lt;$1breachsense_data");
@@ -117,6 +122,8 @@ export function summarize(input: SummaryInput): { text: string; structured: Sear
   return { text: lines.join("\n"), structured };
 }
 
-export function countText(label: string, query: string, n: number): string {
-  return `${n} ${n === 1 ? "match" : "matches"} for ${query} in ${label} (count only, no rows fetched).`;
+export function countText(label: string, query: string, n: number, approximate = false): string {
+  const base = `${n} ${n === 1 ? "match" : "matches"} for ${query} in ${label} (count only, no rows fetched).`;
+  if (!approximate) return base;
+  return `About ${base} Approximate: Breachsense could not finish removing duplicates in time, so the true number may be slightly lower.`;
 }

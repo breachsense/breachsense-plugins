@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { byPath } from "../src/endpoints";
-import { countFrom, countText, normalizeRows, summarize } from "../src/shape";
+import { countFrom, countText, isApproximate, normalizeRows, summarize } from "../src/shape";
 
 const today = new Date("2026-11-24T00:00:00Z");
 const display = byPath("/stealer").display;
@@ -20,6 +20,8 @@ describe("normalizeRows / countFrom", () => {
     expect(countFrom({ cnt: 3 })).toBe(3);
     expect(countFrom({ count: 4 })).toBe(4);
     expect(countFrom([])).toBeNull();
+    expect(isApproximate({ cnt: 3, cnt_approximated: true })).toBe(true);
+    expect(isApproximate({ cnt: 3 })).toBe(false);
   });
 });
 
@@ -71,5 +73,9 @@ describe("countText", () => {
   it("pluralises and says no rows were fetched", () => {
     expect(countText("stealer logs", "acme.com", 1)).toBe("1 match for acme.com in stealer logs (count only, no rows fetched).");
     expect(countText("stealer logs", "acme.com", 0)).toBe("0 matches for acme.com in stealer logs (count only, no rows fetched).");
+  });
+  it("labels an approximate count as an upper estimate", () => {
+    expect(countText("stealer logs", "gmail.com", 631708442, true)).toBe(
+      "About 631708442 matches for gmail.com in stealer logs (count only, no rows fetched). Approximate: Breachsense could not finish removing duplicates in time, so the true number may be slightly lower.");
   });
 });

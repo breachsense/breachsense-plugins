@@ -37963,6 +37963,9 @@ function countFrom(json2) {
   for (const k of ["cnt", "count"]) if (typeof o[k] === "number") return o[k];
   return null;
 }
+function isApproximate(json2) {
+  return !!json2 && typeof json2 === "object" && json2.cnt_approximated === true;
+}
 function escapeData(s) {
   return s.replace(/<(\/?)breachsense_data/gi, "&lt;$1breachsense_data");
 }
@@ -38049,8 +38052,10 @@ function summarize(input2) {
   if (resultUri) lines.push(`Full page (all ${rows.length} rows): ${resultUri}`);
   return { text: lines.join("\n"), structured };
 }
-function countText(label, query, n) {
-  return `${n} ${n === 1 ? "match" : "matches"} for ${query} in ${label} (count only, no rows fetched).`;
+function countText(label, query, n, approximate = false) {
+  const base = `${n} ${n === 1 ? "match" : "matches"} for ${query} in ${label} (count only, no rows fetched).`;
+  if (!approximate) return base;
+  return `About ${base} Approximate: Breachsense could not finish removing duplicates in time, so the true number may be slightly lower.`;
 }
 
 // src/tools/search.ts
@@ -38060,7 +38065,7 @@ async function fetchSearch(deps, ep, built, page2) {
   if ("count" in built.params) {
     const n = countFrom(r.json);
     if (n === null) return { ok: false, fail: { ok: false, failure: { kind: "not_sent", code: "UNPARSEABLE_COUNT" }, cost: r.cost, mayHaveTakenEffect: false, retryAt: null }, cost: r.cost };
-    return { ok: true, shaped: null, count: n, partial: false, cost: r.cost, uri: null };
+    return { ok: true, shaped: null, count: n, approximate: isApproximate(r.json), partial: false, cost: r.cost, uri: null };
   }
   const rows = normalizeRows(r.json);
   if (rows === null) return { ok: false, fail: { ok: false, failure: { kind: "not_sent", code: "UNPARSEABLE_ROWS" }, cost: r.cost, mayHaveTakenEffect: false, retryAt: null }, cost: r.cost };
@@ -38095,9 +38100,9 @@ ${costLine(o.cost, deps.costs.total())}`);
       const line = costLine(o.cost, deps.costs.total());
       if (o.count !== null) {
         return okResult(
-          `${countText(ep.display.label, built.query, o.count)}
+          `${countText(ep.display.label, built.query, o.count, o.approximate)}
 ${line}`,
-          { source: ep.display.label, query: built.query, count: o.count, cost: o.cost }
+          { source: ep.display.label, query: built.query, count: o.count, ...o.approximate ? { approximate: true } : {}, cost: o.cost }
         );
       }
       const s = o.shaped;

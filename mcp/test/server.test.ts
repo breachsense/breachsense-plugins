@@ -106,6 +106,16 @@ describe("MCP server", () => {
     expect(textOf(creds)).toContain("Cost: 0 queries used");
   });
 
+  it("an approximate count says so in text and structuredContent", async () => {
+    api = await startFakeApi(() => ({ json: { cnt: 631708442, cnt_approximated: true } }));
+    const client = await connect(testDeps(api.url));
+    const res = await client.callTool({ name: "search_stealer_logs", arguments: { query: "gmail.com", count_only: true } });
+    expect(res.isError).toBeFalsy();
+    expect(textOf(res)).toContain("About 631708442 matches");
+    expect(textOf(res)).toContain("Approximate");
+    expect(res.structuredContent).toMatchObject({ count: 631708442, approximate: true });
+  });
+
   it("never leaks the key through any result path", async () => {
     api = await startFakeApi((req) => {
       const lic = String(req.headers.lic);

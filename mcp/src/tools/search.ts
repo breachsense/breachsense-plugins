@@ -5,12 +5,12 @@ import type { Cost, Fail } from "../client";
 import { costLine } from "../cost";
 import { mb } from "../errors";
 import { SEARCH_ENDPOINTS, type Built, type SearchEndpoint } from "../endpoints";
-import { countFrom, countText, escapeData, normalizeRows, summarize, type SearchStructured } from "../shape";
+import { countFrom, countText, escapeData, isApproximate, normalizeRows, summarize, type SearchStructured } from "../shape";
 import { redact } from "../redact";
 import { accountOutput, call, errorResult, failureResult, okResult, resourceLink, searchOutput, setupResult, validationResult, type Deps } from "./common";
 
 export type SearchOutcome =
-  | { ok: true; shaped: { text: string; structured: SearchStructured } | null; count: number | null; partial: boolean; cost: Cost; uri: string | null }
+  | { ok: true; shaped: { text: string; structured: SearchStructured } | null; count: number | null; approximate?: boolean; partial: boolean; cost: Cost; uri: string | null }
   | { ok: false; fail: Fail; cost: Cost };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -20,7 +20,7 @@ export async function fetchSearch(deps: Deps, ep: SearchEndpoint<any>, built: Bu
   if ("count" in built.params) {
     const n = countFrom(r.json);
     if (n === null) return { ok: false, fail: { ok: false, failure: { kind: "not_sent", code: "UNPARSEABLE_COUNT" }, cost: r.cost, mayHaveTakenEffect: false, retryAt: null }, cost: r.cost };
-    return { ok: true, shaped: null, count: n, partial: false, cost: r.cost, uri: null };
+    return { ok: true, shaped: null, count: n, approximate: isApproximate(r.json), partial: false, cost: r.cost, uri: null };
   }
   const rows = normalizeRows(r.json);
   if (rows === null) return { ok: false, fail: { ok: false, failure: { kind: "not_sent", code: "UNPARSEABLE_ROWS" }, cost: r.cost, mayHaveTakenEffect: false, retryAt: null }, cost: r.cost };
@@ -54,8 +54,8 @@ export function registerSearchTools(server: McpServer, deps: Deps): void {
       }
       const line = costLine(o.cost, deps.costs.total());
       if (o.count !== null) {
-        return okResult(`${countText(ep.display.label, built.query, o.count)}\n${line}`,
-          { source: ep.display.label, query: built.query, count: o.count, cost: o.cost });
+        return okResult(`${countText(ep.display.label, built.query, o.count, o.approximate)}\n${line}`,
+          { source: ep.display.label, query: built.query, count: o.count, ...(o.approximate ? { approximate: true } : {}), cost: o.cost });
       }
       const s = o.shaped!;
       const links = o.uri ? [resourceLink(o.uri, `${ep.display.label} page ${page}`, "application/json")] : [];
