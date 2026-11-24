@@ -36941,7 +36941,9 @@ var VERSION = "0.1.0";
 var MAX_BODY_BYTES = 20 * 1024 * 1024;
 var MAX_DOWNLOAD_BYTES = 25 * 1024 * 1024;
 function downloadHostAllowedDefault(url2) {
-  return url2.protocol === "https:" && url2.hostname.toLowerCase().endsWith(".amazonaws.com");
+  if (url2.protocol !== "https:") return false;
+  const h = url2.hostname.toLowerCase();
+  return h.endsWith(".amazonaws.com") || h.endsWith(".linodeobjects.com");
 }
 var USER_AGENT = `breachsense-mcp/${VERSION}`;
 var BACKOFF_MS = [1e3, 2e3, 4e3];
@@ -37084,6 +37086,7 @@ var BreachsenseClient = class {
     let plainRetryUsed = false;
     let rateRetries = 0;
     const maxBytes = spec.followDownloadRedirect ? this.maxDownloadBytes : this.maxBodyBytes;
+    const uncounted = spec.billing === "none";
     const addBilling = () => {
       if (free) return;
       if (spec.billing === "billed") cost.used++;
@@ -37095,7 +37098,7 @@ var BreachsenseClient = class {
       if (a.kind === "too_large") {
         const ok2xx = a.status >= 200 && a.status < 300;
         if (ok2xx) addBilling();
-        else if (!free) cost.unknown++;
+        else if (!free && !uncounted) cost.unknown++;
         const failure3 = { kind: "too_large", status: a.status, limitBytes: maxBytes };
         return { ok: false, failure: failure3, cost, mayHaveTakenEffect: spec.op === "write", retryAt: null };
       }
@@ -37107,7 +37110,8 @@ var BreachsenseClient = class {
         addBilling();
         return this.fetchFromStorage(a.location, cost);
       }
-      if (a.kind !== "not_sent" && !free) cost.unknown++;
+      const uncountedReply = spec.billing === "none" && a.kind === "response";
+      if (a.kind !== "not_sent" && !free && !uncountedReply) cost.unknown++;
       const failure2 = a.kind === "response" ? { kind: "http", status: a.status, json: a.json, html: a.html, text: a.text, retryAfterMs: a.retryAfterMs } : a;
       if (failure2.kind === "http" && failure2.status === 429 && !isDailyLimit(failure2.json)) {
         const wait = failure2.retryAfterMs ?? BACKOFF_MS[Math.min(rateRetries, BACKOFF_MS.length - 1)];
@@ -37250,8 +37254,8 @@ var ResultStore = class {
 var BILLING = {
   search: "billed",
   download: "billed",
-  remaining: "unknown",
-  account: "unknown"
+  remaining: "none",
+  account: "none"
 };
 
 // src/errors.ts
@@ -37850,7 +37854,12 @@ var radar = defineSearch({
 });
 
 // src/dates.ts
+var EARLIEST = Date.UTC(1990, 0, 1);
 function parseDate(v) {
+  const d = parseRaw(v);
+  return d && !Number.isNaN(d.getTime()) && d.getTime() >= EARLIEST ? d : null;
+}
+function parseRaw(v) {
   if (typeof v === "number" && Number.isFinite(v)) {
     if (v < 1e8) return isValidYmd(String(v)) ? ymdToDate(String(v)) : null;
     if (v < 1e11) return new Date(v * 1e3);
