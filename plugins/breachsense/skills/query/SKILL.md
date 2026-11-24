@@ -80,7 +80,7 @@ When the allowance is exhausted, every search endpoint returns HTTP `403` with `
 | `s` | The search term (alias `search`). | URL-encode it. |
 | `p` | Page number, starting at 1. | See Pagination. |
 | `date` | `YYYYMMDD`: only records on or after this date. | Also accepts unixtime on most endpoints. `/sessions` and `/docs` take `YYYYMMDD` only. Use it to answer "anything new since X" or "last 6 months" without paging old data. |
-| `count` | Return only the total number of matches, as `{"cnt": N}` (`/docs`: `{"count": N}`). | Replaces the results. Free on every endpoint except `/creds`, where a count costs one query. |
+| `count` | Return only the total number of matches, as `{"cnt": N}` (`/docs`: `{"count": N}`). | Replaces the results. Free on every endpoint. |
 | `r` | Return remaining monthly queries, as `{"Remaining": N}`. | Not on `/asm` or `/docs`. |
 | `update` | Return when that dataset was last updated. | Not on `/asm`. |
 | `unixtime` | Dates as unixtime instead of `YYYYMMDD` (aliases `unix`, `epoch`). | Ignored by `/sessions`, `/asm`, `/docs`. |

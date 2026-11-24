@@ -4,7 +4,7 @@ import type { Built, Params } from "./types";
 
 export const commonShape = {
   since: ymd.optional().describe("Only records found on or after this date (YYYYMMDD)."),
-  count_only: z.boolean().optional().describe("Return only the number of matches, no rows. Free, except on search_breach_credentials where it costs 1 query. Use it first for large domains."),
+  count_only: z.boolean().optional().describe("Return only the number of matches, no rows. Free. Use it first for large domains."),
   page: page.describe("Page number, starting at 1 (the default). Each page costs 1 query; fetch more pages only when the user asks."),
 };
 

@@ -8,12 +8,11 @@ it("remaining and account requests are verified uncounted", () => {
   expect(BILLING.download).toBe("billed");
 });
 
-it("count_only is free on every search endpoint except /creds, as the API handlers bill it", () => {
-  for (const path of ["/stealer", "/combo", "/sessions", "/nhi", "/phish", "/darkweb", "/radar", "/asm", "/docs"]) {
+it("count_only is free on every search endpoint", () => {
+  for (const path of ["/stealer", "/combo", "/creds", "/sessions", "/nhi", "/phish", "/darkweb", "/radar", "/asm", "/docs"]) {
     expect(searchBilling(path, { s: "acme.com", count: true })).toBe("none");
   }
-  expect(searchBilling("/creds", { s: "acme.com", count: true })).toBe("billed");
-  expect(searchBilling("/creds", { s: "acme.com", count: "emails" })).toBe("billed");
+  expect(searchBilling("/creds", { s: "acme.com", count: "emails" })).toBe("none");
 });
 
 it("row searches are billed on every endpoint", () => {

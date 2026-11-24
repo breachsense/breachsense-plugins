@@ -14,14 +14,10 @@ export const BILLING: Record<"search" | "download" | "remaining" | "account", At
 };
 
 /**
- * Endpoints whose ?count is billed like a row search. Every other handler answers a count
- * and returns before its increment_usage_async call; creds.lua bills the count
- * (breachsense/code fleet/commons/usr/local/openresty/nginx/conf/*.lua, checked 2026-11-25).
+ * Cost of a search request. A count (?count / ?size) is free on every endpoint: each handler
+ * answers it before billing (breachsense/code fleet/commons/usr/local/openresty/nginx/conf/*.lua,
+ * checked 2026-11-25; creds made explicit in breachsense/code PR #392).
  */
-const BILLED_COUNT_PATHS = new Set(["/creds"]);
-
-/** Cost of a search request: count_only is free except where the API bills it. */
-export function searchBilling(path: string, params: Params): AttemptCost {
-  if ("count" in params && !BILLED_COUNT_PATHS.has(path)) return "none";
-  return BILLING.search;
+export function searchBilling(_path: string, params: Params): AttemptCost {
+  return "count" in params ? "none" : BILLING.search;
 }

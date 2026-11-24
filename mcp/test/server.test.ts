@@ -97,13 +97,13 @@ describe("MCP server", () => {
     expect(textOf(res)).not.toMatch(/\b0 matches/);
   });
 
-  it("count_only costs nothing except on breach credentials, matching the API", async () => {
+  it("count_only costs nothing on any tool, matching the API", async () => {
     api = await startFakeApi(() => ({ json: { cnt: 42 } }));
     const client = await connect(testDeps(api.url));
     const combo = await client.callTool({ name: "search_combo_lists", arguments: { query: "acme.com", count_only: true } });
     expect(textOf(combo)).toContain("Cost: 0 queries used");
     const creds = await client.callTool({ name: "search_breach_credentials", arguments: { query: "acme.com", count_only: true } });
-    expect(textOf(creds)).toContain("Cost: 1 query used");
+    expect(textOf(creds)).toContain("Cost: 0 queries used");
   });
 
   it("never leaks the key through any result path", async () => {

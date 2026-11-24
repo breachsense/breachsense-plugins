@@ -13,7 +13,7 @@ export const creds = defineSearch({
     query: term.describe("Email address or domain."),
     with_source: z.boolean().optional().describe("Add a short description of each breach source."),
     plaintext_only: z.boolean().optional().describe("Only rows with a usable plaintext password, reduced to email and password."),
-    count_unique_emails: z.boolean().optional().describe("Return only the number of unique email addresses. Costs 1 query."),
+    count_unique_emails: z.boolean().optional().describe("Return only the number of unique email addresses. Free."),
     ...commonShape,
   },
   build: (a) => {
