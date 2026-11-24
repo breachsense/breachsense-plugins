@@ -1,6 +1,6 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { BILLING } from "../billing";
+import { BILLING, searchBilling } from "../billing";
 import type { Cost, Fail } from "../client";
 import { costLine } from "../cost";
 import { mb } from "../errors";
@@ -15,7 +15,7 @@ export type SearchOutcome =
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function fetchSearch(deps: Deps, ep: SearchEndpoint<any>, built: Built, page: number): Promise<SearchOutcome> {
-  const r = await call(deps, { path: ep.path, params: built.params, op: "read", billing: BILLING.search });
+  const r = await call(deps, { path: ep.path, params: built.params, op: "read", billing: searchBilling(ep.path, built.params) });
   if (!r.ok) return { ok: false, fail: r, cost: r.cost };
   if ("count" in built.params) {
     const n = countFrom(r.json);

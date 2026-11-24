@@ -134,7 +134,7 @@ Query cost reporting, on every result:
 - "0 queries used" only when validation stopped the request locally, the client can prove the request was never sent (DNS, connect or TLS failure), or Breachsense documents the request as free (test domains).
 - "N queries used" when a response was received.
 - "Query usage unknown" when the request was sent and no response arrived; points to `get_usage` (audit log).
-- 429s are not assumed free.
+- 429s are free: Breachsense does not count a rate-limited or daily-limited request (owner, 2026-11-25).
 
 Retries by operation:
 
@@ -192,5 +192,5 @@ Evidence comes from the get_usage audit log and the Remaining counter, read befo
 - `/docs?download_doc_id` (302 to storage) is counted: 1 query.
 - The storage redirect goes to Linode Object Storage (`us-east-1.linodeobjects.com`, path-style or bucket subdomain), not AWS. The download allowlist accepts https hosts under `.amazonaws.com` and `.linodeobjects.com`.
 - Live `/docs` data carries placeholder dates such as 19700101 and epoch 0. Dates before 1990-01-01 are treated as undated.
-- count_only billing remains unproven. Two count_only searches on non-free domains were not counted, but both returned a count of 0 (one after 10.8 s), which looks like an API-side failure. Search billing therefore stays "billed".
-- Still unverified: whether 429 responses count against quota (assumed not proven free) and the exact rate-limit versus daily-limit 429 bodies on `/account`.
+- count_only billing follows the API handlers (breachsense/code `fleet/commons/.../conf/*.lua`, checked 2026-11-25): every endpoint answers `?count` before it bills, except `/creds`, which bills a count like a row search. The server reports count_only as free on every tool except `search_breach_credentials` (1 query). This matches the live run: the two non-free stealer counts were not counted. The gmail.com one returned 0 because of the stealer false-zero bug (breachsense/code PR #391).
+- 429 responses are not counted (owner, 2026-11-25). Still unverified: the exact rate-limit versus daily-limit 429 bodies on `/account`.

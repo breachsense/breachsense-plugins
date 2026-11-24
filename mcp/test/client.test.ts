@@ -126,6 +126,14 @@ describe("BreachsenseClient", () => {
     expect(slept).toEqual([]);
     expect(r).toMatchObject({ ok: false, mayHaveTakenEffect: false });
   });
+  it("429 costs nothing: Breachsense does not count rate-limited requests", async () => {
+    let a = await serve([{ status: 429, json: { message: "Rate limit exceeded." }, headers: { "retry-after": "1" } }, { json: [] }]);
+    expect((await client(a.url).c.request(search)).cost).toEqual({ used: 1, unknown: 0 });
+    a = await serve([{ status: 429, json: { message: "Rate limit exceeded." } }]);
+    expect((await client(a.url).c.request(search)).cost).toEqual({ used: 0, unknown: 0 });
+    a = await serve([{ status: 429, json: { error: "Daily test limit reached", reset_in_hours: 5 } }]);
+    expect((await client(a.url).c.request(write)).cost).toEqual({ used: 0, unknown: 0 });
+  });
   it("HTML responses are failures, not retried", async () => {
     const a = await serve([{ status: 404, body: "<html>nope</html>", contentType: "text/html" }]);
     const r = await client(a.url).c.request(search);

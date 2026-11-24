@@ -232,7 +232,8 @@ export class BreachsenseClient {
       }
 
       // An uncounted endpoint (billing "none") costs nothing for any HTTP reply; no reply stays unknown.
-      const uncountedReply = spec.billing === "none" && a.kind === "response";
+      // Breachsense never counts a 429 (rate limit or daily limit), on any endpoint.
+      const uncountedReply = a.kind === "response" && (spec.billing === "none" || a.status === 429);
       if (a.kind !== "not_sent" && !free && !uncountedReply) cost.unknown++;
       const failure: Failure = a.kind === "response"
         ? { kind: "http", status: a.status, json: a.json, html: a.html, text: a.text, retryAfterMs: a.retryAfterMs }
