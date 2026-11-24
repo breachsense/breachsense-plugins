@@ -5,7 +5,7 @@ import type { Params } from "../endpoints/types";
 import { costLine, sumCosts } from "../cost";
 import { describeFailure, providerMessage } from "../errors";
 import { redact } from "../redact";
-import { EMAIL_RE, isHttpsUrl } from "../validate";
+import { EMAIL_RE, isHttpsUrl, isValidYmd, ymdToDate } from "../validate";
 import { accountOutput, call, errorResult, failureResult, okResult, setupResult, validationResult, type Deps } from "./common";
 
 const READ = { readOnlyHint: true, destructiveHint: false, openWorldHint: true };
@@ -15,6 +15,22 @@ const asset = z.string().trim().min(1).max(253)
   .refine((s) => !s.includes("::") && !s.includes(","), "must be a single domain, company name, keyword or 6-digit BIN")
   .describe("Domain, company name, brand keyword, or a 6-digit card BIN.");
 const recipient = z.string().trim().refine((v) => EMAIL_RE.test(v) || isHttpsUrl(v), "must be an email address or an https webhook URL");
+
+const USAGE_LOG_DAYS = 35;
+
+/** Local checks for get_usage from/to (YYYY-MM-DD); a missing `to` means today. */
+function usageRangeError(from: string | undefined, to: string | undefined, today: Date): string | null {
+  const ymd = (s: string) => s.replace(/-/g, "");
+  for (const [name, v] of [["from", from], ["to", to]] as const) {
+    if (v && !isValidYmd(ymd(v))) return `${name} is not a real date.`;
+  }
+  if (!from) return null;
+  const start = ymdToDate(ymd(from)).getTime();
+  const end = to ? ymdToDate(ymd(to)).getTime() : Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate());
+  if (start > end) return "from must be on or before to.";
+  if (Math.round((end - start) / 86_400_000) + 1 > USAGE_LOG_DAYS) return `The usage log keeps ${USAGE_LOG_DAYS} days; ask for a range of at most ${USAGE_LOG_DAYS} days.`;
+  return null;
+}
 
 function top(counts: Map<string, number>, n = 10): string {
   return [...counts].sort((a, b) => b[1] - a[1]).slice(0, n).map(([k, v]) => `${k}: ${v}`).join(", ");
@@ -49,6 +65,8 @@ export function registerAccountTools(server: McpServer, deps: Deps): void {
     annotations: READ,
   }, async (a) => {
     if (!deps.client) return setupResult();
+    const rangeErr = usageRangeError(a.from, a.to, deps.today());
+    if (rangeErr) return validationResult(rangeErr);
     const rem = await call(deps, { path: "/stealer", params: { r: true }, op: "read", billing: BILLING.remaining });
     const params: Params = { action: "audit" };
     if (a.from || a.to) { if (a.from) params.from = a.from; if (a.to) params.to = a.to; } else params.days = String(a.days ?? 30);

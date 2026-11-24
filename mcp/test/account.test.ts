@@ -97,4 +97,20 @@ describe("account tools", () => {
     const res = await client.callTool({ name: "send_test_alert", arguments: { asset: "nope.com" } });
     expect(textOf(res)).toContain("That asset isn't on the watchlist.");
   });
+
+  it("get_usage rejects a backwards or over-35-day range locally", async () => {
+    const client = await setup(() => ({ json: {} }));
+    const back = await client.callTool({ name: "get_usage", arguments: { from: "2026-11-20", to: "2026-11-10" } });
+    expect(back.isError).toBe(true);
+    expect(textOf(back)).toContain("from must be on or before to. No request was sent. Cost: 0 queries used.");
+    const long = await client.callTool({ name: "get_usage", arguments: { from: "2026-09-01", to: "2026-11-20" } });
+    expect(long.isError).toBe(true);
+    expect(textOf(long)).toContain("The usage log keeps 35 days; ask for a range of at most 35 days. No request was sent.");
+    const bad = await client.callTool({ name: "get_usage", arguments: { from: "2026-02-30" } });
+    expect(bad.isError).toBe(true);
+    expect(api!.calls).toHaveLength(0);
+    const ok = await client.callTool({ name: "get_usage", arguments: { from: "2026-10-21", to: "2026-11-24" } });
+    expect(ok.isError).toBeFalsy();
+    expect(api!.calls).toHaveLength(2);
+  });
 });
