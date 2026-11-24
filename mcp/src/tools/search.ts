@@ -5,7 +5,7 @@ import type { Cost, Fail } from "../client";
 import { costLine } from "../cost";
 import { SEARCH_ENDPOINTS, type Built, type SearchEndpoint } from "../endpoints";
 import { countFrom, countText, escapeData, normalizeRows, summarize, type SearchStructured } from "../shape";
-import { accountOutput, call, failureResult, okResult, resourceLink, searchOutput, setupResult, validationResult, type Deps } from "./common";
+import { accountOutput, call, errorResult, failureResult, okResult, resourceLink, searchOutput, setupResult, validationResult, type Deps } from "./common";
 
 export type SearchOutcome =
   | { ok: true; shaped: { text: string; structured: SearchStructured } | null; count: number | null; partial: boolean; cost: Cost; uri: string | null }
@@ -16,7 +16,9 @@ export async function fetchSearch(deps: Deps, ep: SearchEndpoint<any>, built: Bu
   const r = await call(deps, { path: ep.path, params: built.params, op: "read", billing: BILLING.search });
   if (!r.ok) return { ok: false, fail: r, cost: r.cost };
   if ("count" in built.params) {
-    return { ok: true, shaped: null, count: countFrom(r.json) ?? 0, partial: false, cost: r.cost, uri: null };
+    const n = countFrom(r.json);
+    if (n === null) return { ok: false, fail: { ok: false, failure: { kind: "not_sent", code: "UNPARSEABLE_COUNT" }, cost: r.cost, mayHaveTakenEffect: false, retryAt: null }, cost: r.cost };
+    return { ok: true, shaped: null, count: n, partial: false, cost: r.cost, uri: null };
   }
   const rows = normalizeRows(r.json);
   const uri = rows.length ? deps.store.put({ mimeType: "application/json", text: JSON.stringify(rows) }) : null;
@@ -39,7 +41,12 @@ export function registerSearchTools(server: McpServer, deps: Deps): void {
       if ("error" in built) return validationResult(built.error);
       const page = args.page ?? 1;
       const o = await fetchSearch(deps, ep, built, page);
-      if (!o.ok) return failureResult(deps, o.fail);
+      if (!o.ok) {
+        if (o.fail.failure.kind === "not_sent" && o.fail.failure.code === "UNPARSEABLE_COUNT") {
+          return errorResult(`Breachsense returned an unexpected response, so the count is unavailable.\n${costLine(o.cost, deps.costs.total())}`);
+        }
+        return failureResult(deps, o.fail);
+      }
       const line = costLine(o.cost, deps.costs.total());
       if (o.count !== null) {
         return okResult(`${countText(ep.display.label, built.query, o.count)}\n${line}`,
@@ -65,7 +72,8 @@ export function registerDownloadTool(server: McpServer, deps: Deps): void {
     if (!deps.client) return setupResult();
     const r = await call(deps, { path: "/docs", params: { download_doc_id: doc_id }, op: "read", billing: BILLING.download });
     if (!r.ok) return failureResult(deps, r);
-    const type = r.contentType.split(";")[0].trim() || "application/octet-stream";
+    const rawType = r.contentType.split(";")[0].trim();
+    const type = /^[\w.+-]+\/[\w.+-]+$/.test(rawType) ? rawType : "application/octet-stream";
     const textual = /^(text\/|application\/(json|xml|csv))/i.test(type);
     const uri = deps.store.put(textual ? { mimeType: type, text: r.text } : { mimeType: type, blob: Buffer.from(r.bytes).toString("base64") });
     const line = costLine(r.cost, deps.costs.total());

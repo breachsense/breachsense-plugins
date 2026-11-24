@@ -1,9 +1,10 @@
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
-import type { BreachsenseClient, ClientResult, Fail, RequestSpec } from "../client";
+import type { BreachsenseClient, ClientResult, Fail, RequestSpec, Success } from "../client";
 import { SETUP_MESSAGE } from "../config";
 import { costLine, type CostTracker } from "../cost";
 import { describeFailure } from "../errors";
+import { redact } from "../redact";
 import type { ResultStore } from "../results";
 
 export interface Deps {
@@ -24,7 +25,16 @@ export const accountOutput = z.looseObject({ cost: costSchema });
 export async function call(deps: Deps, spec: RequestSpec): Promise<ClientResult> {
   const r = await deps.client!.request(spec);
   deps.costs.add(r.cost);
-  return r;
+  return r.ok ? scrubSuccess(deps, r) : r;
+}
+
+/** Remove the license key from anything the server echoed back, before it is stored or shown. */
+function scrubSuccess(deps: Deps, r: Success): Success {
+  if (!deps.secrets.some((x) => x && r.text.includes(x))) return r;
+  const text = redact(r.text, deps.secrets);
+  let json = r.json;
+  if (json !== undefined && json !== null) { try { json = JSON.parse(text); } catch { json = redact(JSON.stringify(json), deps.secrets); } }
+  return { ...r, text, json, bytes: new TextEncoder().encode(text) };
 }
 
 export function okResult(text: string, structured: Record<string, unknown>, extra: ContentItem[] = []): CallToolResult {
