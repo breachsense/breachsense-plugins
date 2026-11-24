@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Fail, Failure } from "../src/client";
-import { describeFailure, shortFailure } from "../src/errors";
+import { describeFailure, MAYBE_APPLIED, shortFailure } from "../src/errors";
 
 const ctx = { keySource: "the BREACHSENSE_API_KEY environment variable", secrets: ["testkey_0123456789abcdef"] };
 const http = (status: number, json: unknown, text = JSON.stringify(json), html = false): Failure =>
@@ -56,5 +56,31 @@ describe("describeFailure", () => {
   });
   it("short form for an invalid request", () => {
     expect(shortFailure(fail({ kind: "not_sent", code: "INVALID_REQUEST" }), ctx)).toBe("could not be sent (invalid request)");
+  });
+  it("redacts a webhook credential that a 400 or 422 provider message echoes", () => {
+    const withHook = { ...ctx, secrets: [...ctx.secrets, "hookpass12345"] };
+    expect(describeFailure(fail(http(400, { message: "bad hook hookpass12345 here" })), withHook))
+      .toBe("Breachsense rejected the request: bad hook [redacted] here");
+    expect(describeFailure(fail(http(422, { error: "bad hook hookpass12345 here" })), withHook))
+      .toBe("Breachsense couldn't apply this change: bad hook [redacted] here");
+  });
+  it("redacts URL basic-auth in a 400 provider message", () => {
+    expect(describeFailure(fail(http(400, { message: "bad url https://bob:s3cretpass@hooks.acme.com/x" })), ctx))
+      .toBe("Breachsense rejected the request: bad url https://[redacted]@hooks.acme.com/x");
+  });
+  it("3xx on a write warns the change may have been applied", () => {
+    const t = describeFailure(fail(http(302, undefined, "", false), { mayHaveTakenEffect: true }), ctx);
+    expect(t.endsWith(MAYBE_APPLIED)).toBe(true);
+  });
+  it("5xx on a write warns the change may have been applied", () => {
+    expect(describeFailure(fail(http(500, {}), { mayHaveTakenEffect: true }), ctx)).toContain("may already have been applied");
+  });
+  it("HTML 2xx on a write warns the change may have been applied", () => {
+    expect(describeFailure(fail(http(200, undefined, "<html></html>", true), { mayHaveTakenEffect: true }), ctx))
+      .toContain("may already have been applied");
+  });
+  it("singular hour when the daily limit resets in one hour", () => {
+    expect(describeFailure(fail(http(429, { error: "Daily test limit", reset_in_hours: 1 })), ctx))
+      .toBe("The daily limit for this action has been reached. It resets in 1 hour.");
   });
 });

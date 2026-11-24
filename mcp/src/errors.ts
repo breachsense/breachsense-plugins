@@ -45,13 +45,13 @@ export function describeFailure(r: Fail, ctx: ErrorContext): string {
   if (f.status === 403 && /unmonitored asset/i.test(msg)) return "That asset isn't on the watchlist. Add it with manage_watchlist first.";
   if (f.status === 429 && isDailyLimit(f.json)) {
     const h = num(o.reset_in_hours);
-    return `The daily limit for this action has been reached.${h !== null ? ` It resets in ${h} hours.` : ""}`;
+    return `The daily limit for this action has been reached.${h !== null ? ` It resets in ${h} ${h === 1 ? "hour" : "hours"}.` : ""}`;
   }
   if (f.status === 429) return `Breachsense is rate limiting requests.${r.retryAt ? ` Try again after ${r.retryAt.toISOString()}.` : " Try again shortly."}`;
   if (f.status === 400) return `Breachsense rejected the request${msg ? `: ${msg}` : "."}`;
   if (f.status === 422) return `Breachsense couldn't apply this change${msg ? `: ${msg}` : "."}`;
   if (f.status >= 500) return "Breachsense had a temporary server problem. Try again shortly; if it keeps happening, contact support@breachsense.com." + tail;
-  return `Breachsense returned HTTP ${f.status}${msg ? `: ${msg}` : "."}`;
+  return `Breachsense returned HTTP ${f.status}${msg ? `: ${msg}` : "."}` + tail;
 }
 
 export function shortFailure(r: Fail, ctx: ErrorContext): string {
