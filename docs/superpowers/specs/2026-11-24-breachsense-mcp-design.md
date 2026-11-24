@@ -181,8 +181,16 @@ Skill after the MCP ships: kept and trimmed. It keeps presentation guidance for 
 
 Out of scope for phase 1: key rotation, CSV export, auto-paging, cross-session caching, remote transport and OAuth.
 
-## Open items to verify during implementation
+## Verified against the live API (2026-11-24)
 
-- Whether `r` (remaining quota) is billed.
-- Whether 429 responses are counted against quota (assume not proven free).
-- Exact rate-limit vs daily-limit 429 bodies on `/account`, to classify them.
+Evidence comes from the get_usage audit log and the Remaining counter, read before and after each call.
+
+- `/stealer?r` (remaining) and `/account?action=audit` are not counted: Remaining stayed unchanged across two get_usage calls and no audit events appeared.
+- `/account` list (4 calls), watchlist add/del, whitelist add/del and `action=test` are not counted.
+- `/account` 4xx replies (403 "Unmonitored asset", 400 "reserved documentation domain") are not counted. A non-2xx reply from an uncounted endpoint therefore costs nothing; a request with no reply stays unknown.
+- Searches for example.com on all endpoints, including `/docs` and count_only, are not counted, which matches the free-term rule.
+- `/docs?download_doc_id` (302 to storage) is counted: 1 query.
+- The storage redirect goes to Linode Object Storage (`us-east-1.linodeobjects.com`, path-style or bucket subdomain), not AWS. The download allowlist accepts https hosts under `.amazonaws.com` and `.linodeobjects.com`.
+- Live `/docs` data carries placeholder dates such as 19700101 and epoch 0. Dates before 1990-01-01 are treated as undated.
+- count_only billing remains unproven. Two count_only searches on non-free domains were not counted, but both returned a count of 0 (one after 10.8 s), which looks like an API-side failure. Search billing therefore stays "billed".
+- Still unverified: whether 429 responses count against quota (assumed not proven free) and the exact rate-limit versus daily-limit 429 bodies on `/account`.
