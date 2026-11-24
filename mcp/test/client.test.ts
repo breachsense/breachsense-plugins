@@ -173,3 +173,80 @@ describe("BreachsenseClient", () => {
     expect(r).toMatchObject({ ok: false, failure: { kind: "no_response", reason: "reset" }, cost: { unknown: 2 } });
   });
 });
+
+describe("download redirect (S3) and body caps", () => {
+  const download = { path: "/docs", params: { download_doc_id: "abc" }, op: "read" as const, billing: "billed" as const, followDownloadRedirect: true };
+  const local = (u: URL) => u.hostname === "127.0.0.1";
+
+  it("follows a 302 to allowlisted storage without the key; first leg is billed, second is free", async () => {
+    const s3 = await startFakeApi(() => ({ body: "<html>original doc</html>", contentType: "text/html" }));
+    try {
+      const a = await serve([{ status: 302, headers: { location: `${s3.url}/bucket/abc?X-Amz-Signature=x` }, body: "" }]);
+      const r = await client(a.url, { downloadHostAllowed: local }).c.request(download);
+      expect(a.calls).toHaveLength(1);
+      expect(s3.calls).toHaveLength(1);
+      expect(s3.calls[0].path).toBe("/bucket/abc");
+      expect(s3.calls[0].headers.lic).toBeUndefined();
+      expect(s3.calls[0].headers["user-agent"]).toBe("breachsense-mcp/0.1.0");
+      expect(JSON.stringify(s3.calls[0].headers)).not.toContain(KEY);
+      expect(r).toMatchObject({ ok: true, status: 200, text: "<html>original doc</html>", contentType: "text/html", cost: { used: 1, unknown: 0 } });
+    } finally { await s3.close(); }
+  });
+
+  it("default allowlist refuses a non-S3 location with no second request", async () => {
+    const other = await startFakeApi(() => ({ body: "x", contentType: "text/plain" }));
+    try {
+      const a = await serve([{ status: 302, headers: { location: `${other.url}/x` }, body: "" }]);
+      const r = await client(a.url).c.request(download);
+      expect(other.calls).toHaveLength(0);
+      expect(a.calls).toHaveLength(1);
+      expect(r).toMatchObject({ ok: false, failure: { kind: "redirect_refused" }, cost: { used: 1, unknown: 0 }, mayHaveTakenEffect: false });
+    } finally { await other.close(); }
+  });
+
+  it("default allowlist accepts only https *.amazonaws.com", async () => {
+    const { downloadHostAllowedDefault: ok } = await import("../src/client");
+    expect(ok(new URL("https://bucket.s3.us-east-1.amazonaws.com/a?sig"))).toBe(true);
+    expect(ok(new URL("http://bucket.s3.amazonaws.com/a"))).toBe(false);
+    expect(ok(new URL("https://amazonaws.com.evil.net/a"))).toBe(false);
+    expect(ok(new URL("https://evilamazonaws.com/a"))).toBe(false);
+  });
+
+  it("a storage error after the redirect is a failure that still counts the billed query", async () => {
+    const s3 = await startFakeApi(() => ({ status: 403, body: "<Error>AccessDenied</Error>", contentType: "application/xml" }));
+    try {
+      const a = await serve([{ status: 302, headers: { location: `${s3.url}/b` }, body: "" }]);
+      const r = await client(a.url, { downloadHostAllowed: local }).c.request(download);
+      expect(r).toMatchObject({ ok: false, failure: { kind: "storage", status: 403 }, cost: { used: 1, unknown: 0 } });
+    } finally { await s3.close(); }
+  });
+
+  it("other requests still never follow a redirect, even to allowlisted hosts", async () => {
+    const target = await startFakeApi(() => ({ json: [] }));
+    try {
+      const a = await serve([{ status: 302, headers: { location: `${target.url}/x` }, body: "" }]);
+      const r = await client(a.url, { downloadHostAllowed: local }).c.request(search);
+      expect(target.calls).toHaveLength(0);
+      expect(r).toMatchObject({ ok: false, failure: { kind: "http", status: 302 } });
+    } finally { await target.close(); }
+  });
+
+  it("a 2xx body over the cap is a billed failure, not retried", async () => {
+    const a = await serve([{ json: [{ usr: "x".repeat(200) }] }]);
+    const r = await client(a.url, { maxBodyBytes: 100 }).c.request(search);
+    expect(a.calls).toHaveLength(1);
+    expect(r).toMatchObject({ ok: false, failure: { kind: "too_large", limitBytes: 100 }, cost: { used: 1, unknown: 0 } });
+  });
+
+  it("downloads use their own cap, on the storage leg too", async () => {
+    const s3 = await startFakeApi(() => ({ body: "y".repeat(300), contentType: "text/plain" }));
+    try {
+      const a = await serve([{ status: 302, headers: { location: `${s3.url}/b` }, body: "" }]);
+      const big = await client(a.url, { downloadHostAllowed: local, maxBodyBytes: 100, maxDownloadBytes: 1000 }).c.request(download);
+      expect(big).toMatchObject({ ok: true });
+      const a2 = await serve([{ status: 302, headers: { location: `${s3.url}/b` }, body: "" }]);
+      const r = await client(a2.url, { downloadHostAllowed: local, maxDownloadBytes: 200 }).c.request(download);
+      expect(r).toMatchObject({ ok: false, failure: { kind: "too_large", limitBytes: 200 }, cost: { used: 1, unknown: 0 } });
+    } finally { await s3.close(); }
+  });
+});

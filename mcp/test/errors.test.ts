@@ -83,4 +83,26 @@ describe("describeFailure", () => {
     expect(describeFailure(fail(http(429, { error: "Daily test limit", reset_in_hours: 1 })), ctx))
       .toBe("The daily limit for this action has been reached. It resets in 1 hour.");
   });
+  it("an HTML 429 still gets the rate-limit message", () => {
+    expect(describeFailure(fail(http(429, undefined, "<html>Too Many Requests</html>", true)), ctx))
+      .toBe("Breachsense is rate limiting requests. Try again shortly.");
+  });
+  it("too-large, refused-redirect and storage failures", () => {
+    expect(describeFailure(fail({ kind: "too_large", status: 200, limitBytes: 25 * 1024 * 1024 }), ctx))
+      .toBe("Breachsense returned a response too large to handle (over 25 MB).");
+    expect(describeFailure(fail({ kind: "redirect_refused" }), ctx))
+      .toBe("Breachsense redirected the download to an unexpected location, so it was not followed.");
+    expect(describeFailure(fail({ kind: "storage", status: 403 }), ctx))
+      .toBe("The document could not be fetched from Breachsense storage (HTTP 403). The download link may have expired; try again.");
+    expect(describeFailure(fail({ kind: "storage", status: null }), ctx))
+      .toBe("The document could not be fetched from Breachsense storage (no reply). Try again.");
+    expect(shortFailure(fail({ kind: "too_large", status: 200, limitBytes: 20 * 1024 * 1024 }), ctx)).toBe("returned a response too large to handle (over 20 MB)");
+  });
+  it("unparseable replies say the response was unexpected, not that the network failed", () => {
+    expect(describeFailure(fail({ kind: "not_sent", code: "UNPARSEABLE_ROWS" }), ctx))
+      .toBe("Breachsense returned an unexpected response, so the results are unavailable.");
+    expect(describeFailure(fail({ kind: "not_sent", code: "UNPARSEABLE_COUNT" }), ctx))
+      .toBe("Breachsense returned an unexpected response, so the count is unavailable.");
+    expect(shortFailure(fail({ kind: "not_sent", code: "UNPARSEABLE_ROWS" }), ctx)).toBe("returned an unexpected response");
+  });
 });

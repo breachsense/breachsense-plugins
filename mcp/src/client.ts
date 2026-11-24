@@ -9,7 +9,13 @@ export interface Cost { used: number; unknown: number }
 export type Failure =
   | { kind: "not_sent"; code: string }
   | { kind: "no_response"; reason: "timeout" | "reset" }
-  | { kind: "http"; status: number; json: unknown; html: boolean; text: string; retryAfterMs: number | null };
+  | { kind: "http"; status: number; json: unknown; html: boolean; text: string; retryAfterMs: number | null }
+  /** The body was bigger than we are willing to hold in memory; reading stopped at the cap. */
+  | { kind: "too_large"; status: number; limitBytes: number }
+  /** A download redirect pointed somewhere other than the allowed storage hosts; it was not followed. */
+  | { kind: "redirect_refused" }
+  /** The storage server a download was redirected to did not return the file. */
+  | { kind: "storage"; status: number | null };
 
 export interface Success {
   ok: true; status: number; json: unknown; text: string; bytes: Uint8Array; contentType: string; partial: boolean; cost: Cost;
@@ -17,7 +23,11 @@ export interface Success {
 export interface Fail { ok: false; failure: Failure; cost: Cost; mayHaveTakenEffect: boolean; retryAt: Date | null }
 export type ClientResult = Success | Fail;
 
-export interface RequestSpec { path: string; params: Params; op: Op; billing: AttemptCost }
+export interface RequestSpec {
+  path: string; params: Params; op: Op; billing: AttemptCost;
+  /** Document download only: follow one 3xx to an allowlisted storage host, without the license key. */
+  followDownloadRedirect?: boolean;
+}
 
 export interface ClientOptions {
   key: string;
@@ -29,6 +39,17 @@ export interface ClientOptions {
   rateDeadlineMs?: number;
   throttleMs?: number;
   userAgent?: string;
+  /** Hosts a download redirect may go to. Default: https and *.amazonaws.com (S3 presigned URLs). */
+  downloadHostAllowed?: (url: URL) => boolean;
+  maxBodyBytes?: number;
+  maxDownloadBytes?: number;
+}
+
+export const MAX_BODY_BYTES = 20 * 1024 * 1024;
+export const MAX_DOWNLOAD_BYTES = 25 * 1024 * 1024;
+
+export function downloadHostAllowedDefault(url: URL): boolean {
+  return url.protocol === "https:" && url.hostname.toLowerCase().endsWith(".amazonaws.com");
 }
 
 export const USER_AGENT = `breachsense-mcp/${VERSION}`;
@@ -86,8 +107,30 @@ function retryAfterMs(h: string | null, now: number): number | null {
   return Number.isNaN(t) ? null : Math.max(0, t - now);
 }
 
+/** Read at most `max` bytes of the body; null when it is larger (the rest is discarded). */
+async function readCapped(res: Response, max: number): Promise<Uint8Array | null> {
+  const declared = Number(res.headers.get("content-length"));
+  if (Number.isFinite(declared) && declared > max) { await res.body?.cancel().catch(() => {}); return null; }
+  if (!res.body) return new Uint8Array();
+  const reader = res.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > max) { await reader.cancel().catch(() => {}); return null; }
+    chunks.push(value);
+  }
+  const out = new Uint8Array(total);
+  let off = 0;
+  for (const c of chunks) { out.set(c, off); off += c.byteLength; }
+  return out;
+}
+
 type Attempt =
-  | { kind: "response"; status: number; json: unknown; text: string; bytes: Uint8Array; contentType: string; html: boolean; retryAfterMs: number | null }
+  | { kind: "response"; status: number; json: unknown; text: string; bytes: Uint8Array; contentType: string; html: boolean; retryAfterMs: number | null; location: string | null }
+  | { kind: "too_large"; status: number }
   | { kind: "not_sent"; code: string }
   | { kind: "no_response"; reason: "timeout" | "reset" };
 
@@ -99,6 +142,9 @@ export class BreachsenseClient {
   private readonly rateDeadlineMs: number;
   private readonly throttle: Throttle;
   private readonly ua: string;
+  private readonly downloadHostAllowed: (url: URL) => boolean;
+  private readonly maxBodyBytes: number;
+  private readonly maxDownloadBytes: number;
 
   constructor(private readonly opts: ClientOptions) {
     this.fetchImpl = opts.fetchImpl ?? fetch;
@@ -108,22 +154,29 @@ export class BreachsenseClient {
     this.rateDeadlineMs = opts.rateDeadlineMs ?? 20_000;
     this.throttle = new Throttle(opts.throttleMs ?? 1000, this.now, this.sleep);
     this.ua = opts.userAgent ?? USER_AGENT;
+    this.downloadHostAllowed = opts.downloadHostAllowed ?? downloadHostAllowedDefault;
+    this.maxBodyBytes = opts.maxBodyBytes ?? MAX_BODY_BYTES;
+    this.maxDownloadBytes = opts.maxDownloadBytes ?? MAX_DOWNLOAD_BYTES;
   }
 
-  private async attempt(url: string): Promise<Attempt> {
+  /**
+   * One HTTP GET, never following redirects. The license key is only added for the configured
+   * Breachsense base URL; the storage leg of a download gets just the User-Agent.
+   */
+  private async attempt(url: string, withKey: boolean, maxBytes: number): Promise<Attempt> {
     try {
-      const res = await this.fetchImpl(url, {
-        headers: { lic: this.opts.key, "user-agent": this.ua, accept: "application/json" },
-        signal: AbortSignal.timeout(this.timeoutMs),
-        redirect: "manual",
-      });
-      const bytes = new Uint8Array(await res.arrayBuffer());
+      const headers: Record<string, string> = withKey
+        ? { lic: this.opts.key, "user-agent": this.ua, accept: "application/json" }
+        : { "user-agent": this.ua };
+      const res = await this.fetchImpl(url, { headers, signal: AbortSignal.timeout(this.timeoutMs), redirect: "manual" });
+      const bytes = await readCapped(res, maxBytes);
+      if (!bytes) return { kind: "too_large", status: res.status };
       const contentType = res.headers.get("content-type") ?? "";
       const text = new TextDecoder().decode(bytes);
       let json: unknown = undefined;
       try { json = JSON.parse(text); } catch { /* not JSON */ }
       const html = /text\/html/i.test(contentType) || /^\s*<(!doctype|html)/i.test(text);
-      return { kind: "response", status: res.status, json, text, bytes, contentType, html, retryAfterMs: retryAfterMs(res.headers.get("retry-after"), this.now()) };
+      return { kind: "response", status: res.status, json, text, bytes, contentType, html, retryAfterMs: retryAfterMs(res.headers.get("retry-after"), this.now()), location: res.headers.get("location") };
     } catch (err) {
       if (isInvalidRequest(err)) return { kind: "not_sent", code: "INVALID_REQUEST" };
       const code = errorCode(err);
@@ -140,17 +193,33 @@ export class BreachsenseClient {
     const started = this.now();
     let plainRetryUsed = false;
     let rateRetries = 0;
+    const maxBytes = spec.followDownloadRedirect ? this.maxDownloadBytes : this.maxBodyBytes;
+    const addBilling = () => {
+      if (free) return;
+      if (spec.billing === "billed") cost.used++;
+      else if (spec.billing === "unknown") cost.unknown++;
+    };
 
     for (;;) {
       await this.throttle.wait();
-      const a = await this.attempt(url);
+      const a = await this.attempt(url, true, maxBytes);
+
+      if (a.kind === "too_large") {
+        const ok2xx = a.status >= 200 && a.status < 300;
+        if (ok2xx) addBilling(); else if (!free) cost.unknown++;
+        const failure: Failure = { kind: "too_large", status: a.status, limitBytes: maxBytes };
+        return { ok: false, failure, cost, mayHaveTakenEffect: spec.op === "write", retryAt: null };
+      }
 
       if (a.kind === "response" && a.status >= 200 && a.status < 300 && !a.html) {
-        if (!free) {
-          if (spec.billing === "billed") cost.used++;
-          else if (spec.billing === "unknown") cost.unknown++;
-        }
+        addBilling();
         return { ok: true, status: a.status, json: a.json, text: a.text, bytes: a.bytes, contentType: a.contentType, partial: a.status === 206, cost };
+      }
+
+      if (spec.followDownloadRedirect && a.kind === "response" && a.status >= 300 && a.status < 400) {
+        // Breachsense counts the download before redirecting to storage.
+        addBilling();
+        return this.fetchFromStorage(a.location, cost);
       }
 
       if (a.kind !== "not_sent" && !free) cost.unknown++;
@@ -177,5 +246,18 @@ export class BreachsenseClient {
 
       return { ok: false, failure, cost, mayHaveTakenEffect: spec.op === "write" && (ambiguous || deliveredUnusable), retryAt: null };
     }
+  }
+
+  /** Second leg of a download: one GET to the storage URL, no key, no redirects, no HTML sniffing. */
+  private async fetchFromStorage(location: string | null, cost: Cost): Promise<ClientResult> {
+    const fail = (failure: Failure): Fail => ({ ok: false, failure, cost, mayHaveTakenEffect: false, retryAt: null });
+    let target: URL;
+    try { target = new URL(location ?? ""); } catch { return fail({ kind: "redirect_refused" }); }
+    if (!this.downloadHostAllowed(target)) return fail({ kind: "redirect_refused" });
+    const b = await this.attempt(target.href, false, this.maxDownloadBytes);
+    if (b.kind === "too_large") return fail({ kind: "too_large", status: b.status, limitBytes: this.maxDownloadBytes });
+    if (b.kind !== "response") return fail({ kind: "storage", status: null });
+    if (b.status < 200 || b.status >= 300) return fail({ kind: "storage", status: b.status });
+    return { ok: true, status: b.status, json: b.json, text: b.text, bytes: b.bytes, contentType: b.contentType, partial: false, cost };
   }
 }

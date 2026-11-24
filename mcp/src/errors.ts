@@ -17,9 +17,26 @@ function num(v: unknown): number | null {
   return typeof v === "number" && Number.isFinite(v) ? v : null;
 }
 
+function mb(bytes: number): string {
+  return bytes >= 1024 * 1024 ? `${Math.floor(bytes / (1024 * 1024))} MB` : `${bytes} bytes`;
+}
+
+const UNPARSEABLE: Record<string, string> = {
+  UNPARSEABLE_COUNT: "Breachsense returned an unexpected response, so the count is unavailable.",
+  UNPARSEABLE_ROWS: "Breachsense returned an unexpected response, so the results are unavailable.",
+};
+
 export function describeFailure(r: Fail, ctx: ErrorContext): string {
   const f = r.failure;
   const tail = r.mayHaveTakenEffect ? MAYBE_APPLIED : "";
+  if (f.kind === "too_large") return `Breachsense returned a response too large to handle (over ${mb(f.limitBytes)}).` + tail;
+  if (f.kind === "redirect_refused") return "Breachsense redirected the download to an unexpected location, so it was not followed.";
+  if (f.kind === "storage") {
+    return f.status === null
+      ? "The document could not be fetched from Breachsense storage (no reply). Try again."
+      : `The document could not be fetched from Breachsense storage (HTTP ${f.status}). The download link may have expired; try again.`;
+  }
+  if (f.kind === "not_sent" && UNPARSEABLE[f.code]) return UNPARSEABLE[f.code];
   if (f.kind === "not_sent" && f.code === "INVALID_REQUEST") {
     return "The request could not be built (invalid API base URL, port or license key format), so nothing was sent. Check BREACHSENSE_API_BASE and the license key.";
   }
@@ -28,10 +45,16 @@ export function describeFailure(r: Fail, ctx: ErrorContext): string {
     return (f.reason === "timeout" ? "Breachsense didn't respond in time." : "The connection to Breachsense dropped before a reply arrived.") + tail;
   }
   if (/error code:\s*1010/i.test(f.text)) return "Breachsense blocked this request at its edge.";
-  if (f.html) return `Breachsense returned an unexpected response (HTTP ${f.status}).` + tail;
 
   const msg = providerMessage(f.json, ctx.secrets) ?? "";
   const o = (f.json && typeof f.json === "object" ? f.json : {}) as Record<string, unknown>;
+  // Rate limits first: an edge proxy may answer 429 with an HTML page.
+  if (f.status === 429 && isDailyLimit(f.json)) {
+    const h = num(o.reset_in_hours);
+    return `The daily limit for this action has been reached.${h !== null ? ` It resets in ${h} ${h === 1 ? "hour" : "hours"}.` : ""}`;
+  }
+  if (f.status === 429) return `Breachsense is rate limiting requests.${r.retryAt ? ` Try again after ${r.retryAt.toISOString()}.` : " Try again shortly."}`;
+  if (f.html) return `Breachsense returned an unexpected response (HTTP ${f.status}).` + tail;
 
   if (f.status === 401 || (f.status === 403 && /valid license|invalid license|expired/i.test(msg))) {
     return `Breachsense rejected the license key read from ${ctx.keySource}. Replace the key there or set BREACHSENSE_API_KEY, then restart the server.`;
@@ -43,11 +66,6 @@ export function describeFailure(r: Fail, ctx: ErrorContext): string {
   }
   if (f.status === 403 && /plan does not include/i.test(msg)) return "This feature isn't included in the license's plan. Contact support@breachsense.com to add it.";
   if (f.status === 403 && /unmonitored asset/i.test(msg)) return "That asset isn't on the watchlist. Add it with manage_watchlist first.";
-  if (f.status === 429 && isDailyLimit(f.json)) {
-    const h = num(o.reset_in_hours);
-    return `The daily limit for this action has been reached.${h !== null ? ` It resets in ${h} ${h === 1 ? "hour" : "hours"}.` : ""}`;
-  }
-  if (f.status === 429) return `Breachsense is rate limiting requests.${r.retryAt ? ` Try again after ${r.retryAt.toISOString()}.` : " Try again shortly."}`;
   if (f.status === 400) return `Breachsense rejected the request${msg ? `: ${msg}` : "."}`;
   if (f.status === 422) return `Breachsense couldn't apply this change${msg ? `: ${msg}` : "."}`;
   if (f.status >= 500) return "Breachsense had a temporary server problem. Try again shortly; if it keeps happening, contact support@breachsense.com." + tail;
@@ -58,6 +76,8 @@ export function shortFailure(r: Fail, ctx: ErrorContext): string {
   const f = r.failure;
   if (f.kind === "no_response") return f.reason === "timeout" ? "timed out" : "lost its connection before replying";
   if (f.kind === "not_sent" && f.code === "INVALID_REQUEST") return "could not be sent (invalid request)";
+  if (f.kind === "not_sent" && UNPARSEABLE[f.code]) return "returned an unexpected response";
+  if (f.kind === "too_large") return `returned a response too large to handle (over ${mb(f.limitBytes)})`;
   if (f.kind === "not_sent") return "couldn't be reached";
   return `returned an error: ${describeFailure(r, ctx)}`;
 }
