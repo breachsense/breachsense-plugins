@@ -12,6 +12,7 @@ function client(url: string, extra: Partial<ClientOptions> = {}) {
   return { c, slept };
 }
 async function serve(replies: FakeReply[]) {
+  await api?.close();
   let i = 0;
   api = await startFakeApi(() => replies[Math.min(i++, replies.length - 1)]);
   return api;
