@@ -5,6 +5,7 @@ import { CostTracker } from "./cost";
 import { INSTRUCTIONS } from "./instructions";
 import { ResultStore } from "./results";
 import type { Deps } from "./tools/common";
+import { registerExposureTool } from "./tools/exposure";
 import { registerDownloadTool, registerSearchTools } from "./tools/search";
 import { VERSION } from "./version";
 
@@ -20,6 +21,7 @@ export function createServer(deps: Deps): McpServer {
   const server = new McpServer({ name: "breachsense", version: VERSION }, { instructions: INSTRUCTIONS });
   registerSearchTools(server, deps);
   registerDownloadTool(server, deps);
+  registerExposureTool(server, deps);
 
   server.registerResource(
     "results",

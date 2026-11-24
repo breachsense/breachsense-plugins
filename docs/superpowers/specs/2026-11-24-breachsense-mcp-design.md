@@ -159,7 +159,7 @@ Pagination and coverage are tracked separately:
 - 206 returns the current page plus `nextPage`.
 - `check_credential_exposure` reports per source: completed (count), failed (reason) and cost. If at least one source completes, the call succeeds and names the missing sources; only the failed source is subject to retry. If all four fail, `isError: true`.
 
-Acceptance test: three sources return zero matches and the fourth times out after dispatch. The result is not an error and reads: "No matches in the three sources checked. The fourth source (phishing captures) timed out. Its query usage is unknown." Cost line: "3 queries used, 1 unknown".
+Acceptance test: three sources return zero matches and the fourth times out after dispatch. The result is not an error and reads: "No matches in the three sources checked. The fourth source (phishing captures) timed out. Its query usage is unknown." Cost line: "3 queries used, 2 unknown" (the timed-out source is retried once under the read policy, and both attempts are unknown).
 
 ## 6. Testing, packaging and rollout
 
