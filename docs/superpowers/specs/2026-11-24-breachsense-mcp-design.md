@@ -1,6 +1,6 @@
 # Breachsense MCP server: design
 
-Status: approved design, phase 1 not yet built
+Status: phase 1 shipped (PR #1, merged 2026-11-25 as `da2cd75`, plugin 1.4.0). Phase 2 not started.
 Date: 2026-11-24
 
 ## Goal
@@ -194,3 +194,10 @@ Evidence comes from the get_usage audit log and the Remaining counter, read befo
 - Live `/docs` data carries placeholder dates such as 19700101 and epoch 0. Dates before 1990-01-01 are treated as undated.
 - count_only billing follows the API handlers (breachsense/code `fleet/commons/.../conf/*.lua`, checked 2026-11-25): every endpoint answers `?count` before it bills. creds.lua carried an unreachable billed count branch, removed in breachsense/code PR #392. The server reports count_only as free on every tool. This matches the live run: the two non-free stealer counts were not counted. The gmail.com one returned 0 because of the stealer false-zero bug (breachsense/code PR #391).
 - 429 responses are not counted (owner, 2026-11-25). Still unverified: the exact rate-limit versus daily-limit 429 bodies on `/account`.
+
+## Shipped state (2026-11-25)
+
+- Claude Code: shipped. Checked end to end from the published marketplace (`breachsense/breachsense-plugins` on GitHub): `claude plugin update` moved 1.0.0 to 1.4.0, `claude plugin validate` passed, `claude mcp list` showed `plugin:breachsense:breachsense` connected, and an MCP client against the installed `server.mjs` listed 18 tools and answered `get_usage` plus two free counts (stealer gmail.com exact 631,954,094; combo gmail.com shown as "About 3,244,529,591 ... Approximate"), each "Cost: 0 queries used".
+- Claude Desktop: not distributed. The README has users build the `.mcpb` from the repo (Node 20+). Needs a download location the owner picks, for example a GitHub release.
+- Other clients (`npx @breachsense/mcp`): not published. `mcp/package.json` is `private: true`; waiting on the owner creating and controlling the `@breachsense` npm org.
+- Still unverified: the exact rate-limit versus daily-limit 429 bodies on `/account` (both are uncounted, only the wording shown could differ).
