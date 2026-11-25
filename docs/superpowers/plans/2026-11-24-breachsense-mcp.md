@@ -1,6 +1,6 @@
 # Breachsense MCP Server (Phase 1) Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Build a local (stdio) MCP server that lets Breachsense customers query their breach data through typed, quota-safe, context-efficient tools, shipped inside the existing `breachsense` Claude Code plugin and as a Claude Desktop `.mcpb` bundle.
 
@@ -9,6 +9,8 @@
 **Tech Stack:** Node >= 20, TypeScript 5.9.3, `@modelcontextprotocol/sdk` 1.32.2, zod 4.6.7, vitest 5.1.1, esbuild 0.28.2, `@anthropic-ai/mcpb` 2.1.2 (packaging only).
 
 Spec: `docs/superpowers/specs/2026-11-24-breachsense-mcp-design.md`
+
+**Status (2026-11-25):** all ten tasks done and merged in PR #1 (`da2cd75`), plugin 1.4.0. Steps are ticked from the shipped code (every file in File Structure exists; 150 tests pass), not from a per-step ledger. Task 10 findings are in the spec's "Verified against the live API" section.
 
 ## Global Constraints
 
@@ -78,7 +80,7 @@ plugins/breachsense/
 **Interfaces:**
 - Produces: `VERSION: string`; `redact(text: string, secrets: readonly string[]): string`; `interface License { key: string; source: string }`; `parseLicenseFile(text: string): string | null`; `loadLicense(env: NodeJS.ProcessEnv, home: string, read?: (path: string) => string): License | null`; `resolveBaseUrl(env: NodeJS.ProcessEnv): string`; `DEFAULT_BASE_URL`; `SETUP_MESSAGE: string`.
 
-- [ ] **Step 1: Create the branch and package files**
+- [x] **Step 1: Create the branch and package files**
 
 ```bash
 cd ~/breachsense-plugins && git checkout -b feat/mcp-server && mkdir -p mcp/src mcp/test && cd mcp
@@ -146,7 +148,7 @@ export const VERSION = "0.1.0";
 Run: `npm install`
 Expected: installs without errors; `package-lock.json` created.
 
-- [ ] **Step 2: Write failing tests for redaction and license loading**
+- [x] **Step 2: Write failing tests for redaction and license loading**
 
 `mcp/test/redact.test.ts`:
 ```ts
@@ -204,12 +206,12 @@ describe("resolveBaseUrl", () => {
 });
 ```
 
-- [ ] **Step 3: Run tests to verify they fail**
+- [x] **Step 3: Run tests to verify they fail**
 
 Run: `npx vitest run test/redact.test.ts test/config.test.ts`
 Expected: FAIL, cannot resolve `../src/redact` and `../src/config`.
 
-- [ ] **Step 4: Implement**
+- [x] **Step 4: Implement**
 
 `mcp/src/redact.ts`:
 ```ts
@@ -278,12 +280,12 @@ export function resolveBaseUrl(env: NodeJS.ProcessEnv): string {
 }
 ```
 
-- [ ] **Step 5: Run tests to verify they pass**
+- [x] **Step 5: Run tests to verify they pass**
 
 Run: `npx vitest run test/redact.test.ts test/config.test.ts && npx tsc --noEmit`
 Expected: all PASS, typecheck clean.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add mcp/package.json mcp/package-lock.json mcp/tsconfig.json mcp/.gitignore mcp/src mcp/test
@@ -306,7 +308,7 @@ git commit -m "mcp: scaffold package, key redaction and license loading"
   - `endpoints/types.ts`: `type Params = Record<string, string | true>`; `type Row = Record<string, unknown>`; `interface FlagContext { query: string; today: Date }`; `interface Display { label: string; dateFields: string[]; fields: string[]; flags?: (row: Row, ctx: FlagContext) => string[]; emptyHint: string }`; `interface Built { params: Params; query: string }`; `interface SearchEndpoint<S>` with `tool, title, description, path, shape, build(args) => Built | { error: string }, display`; `defineSearch()`.
   - `endpoints/index.ts`: `SEARCH_ENDPOINTS: SearchEndpoint<any>[]`; `byPath(path: string): SearchEndpoint<any>`.
 
-- [ ] **Step 1: Write failing tests**
+- [x] **Step 1: Write failing tests**
 
 `mcp/test/validate.test.ts`:
 ```ts
@@ -426,12 +428,12 @@ describe("flags", () => {
 });
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `npx vitest run test/validate.test.ts test/endpoints.test.ts`
 Expected: FAIL, modules not found.
 
-- [ ] **Step 3: Implement `validate.ts` and `dates.ts`**
+- [x] **Step 3: Implement `validate.ts` and `dates.ts`**
 
 `mcp/src/validate.ts`:
 ```ts
@@ -498,7 +500,7 @@ export function daysBetween(a: Date, b: Date): number {
 }
 ```
 
-- [ ] **Step 4: Implement endpoint types, shared helpers and flags**
+- [x] **Step 4: Implement endpoint types, shared helpers and flags**
 
 `mcp/src/endpoints/types.ts`:
 ```ts
@@ -608,7 +610,7 @@ export function credentialFlags(userField: string) {
 }
 ```
 
-- [ ] **Step 5: Implement the ten endpoint files and the index**
+- [x] **Step 5: Implement the ten endpoint files and the index**
 
 `mcp/src/endpoints/stealer.ts`:
 ```ts
@@ -963,12 +965,12 @@ export function byPath(path: string): SearchEndpoint<any> {
 export * from "./types";
 ```
 
-- [ ] **Step 6: Run tests and typecheck**
+- [x] **Step 6: Run tests and typecheck**
 
 Run: `npx vitest run test/validate.test.ts test/endpoints.test.ts && npx tsc --noEmit`
 Expected: all PASS, typecheck clean. If `z.ZodRawShape` is not exported by zod 4.6.7, use `import type { ZodRawShape } from "zod/v4/core"` aliasing `$ZodShape`, keep the same generic, and rerun.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add mcp/src mcp/test
@@ -991,7 +993,7 @@ git commit -m "mcp: validation primitives, date parsing and endpoint definitions
   - `client.ts`: `type Op = "read" | "write"`; `type AttemptCost = "none" | "billed" | "unknown"`; `interface Cost { used: number; unknown: number }`; `type Failure = { kind: "not_sent"; code: string } | { kind: "no_response"; reason: "timeout" | "reset" } | { kind: "http"; status: number; json: unknown; html: boolean; text: string; retryAfterMs: number | null }`; `interface Success { ok: true; status: number; json: unknown; text: string; bytes: Uint8Array; contentType: string; partial: boolean; cost: Cost }`; `interface Fail { ok: false; failure: Failure; cost: Cost; mayHaveTakenEffect: boolean; retryAt: Date | null }`; `type ClientResult = Success | Fail`; `interface RequestSpec { path: string; params: Params; op: Op; billing: AttemptCost }`; `interface ClientOptions { key; baseUrl; fetchImpl?; sleep?; now?; timeoutMs?; rateDeadlineMs?; throttleMs?; userAgent? }`; `class BreachsenseClient { request(spec: RequestSpec): Promise<ClientResult> }`; `buildUrl(base, path, params): string`; `isFreeTerm(params): boolean`; `isDailyLimit(json: unknown): boolean`; `USER_AGENT`.
   - `test/fake-api.ts`: `startFakeApi(handler: (req: FakeRequest) => FakeReply | Promise<FakeReply>): Promise<FakeApi>` with `FakeApi { url: string; calls: FakeRequest[]; close(): Promise<void> }`, `FakeRequest { path: string; query: string; headers: IncomingHttpHeaders }`, `FakeReply { status?: number; json?: unknown; body?: string; contentType?: string; headers?: Record<string, string>; hang?: boolean; destroy?: boolean }`.
 
-- [ ] **Step 1: Write the fake API helper**
+- [x] **Step 1: Write the fake API helper**
 
 `mcp/test/fake-api.ts`:
 ```ts
@@ -1028,7 +1030,7 @@ export async function startFakeApi(handler: (req: FakeRequest) => FakeReply | Pr
 }
 ```
 
-- [ ] **Step 2: Write failing tests**
+- [x] **Step 2: Write failing tests**
 
 `mcp/test/throttle.test.ts`:
 ```ts
@@ -1181,12 +1183,12 @@ describe("BreachsenseClient", () => {
 });
 ```
 
-- [ ] **Step 3: Run tests to verify they fail**
+- [x] **Step 3: Run tests to verify they fail**
 
 Run: `npx vitest run test/throttle.test.ts test/client.test.ts`
 Expected: FAIL, modules not found.
 
-- [ ] **Step 4: Implement**
+- [x] **Step 4: Implement**
 
 `mcp/src/billing.ts`:
 ```ts
@@ -1397,12 +1399,12 @@ export class BreachsenseClient {
 }
 ```
 
-- [ ] **Step 5: Run tests to verify they pass**
+- [x] **Step 5: Run tests to verify they pass**
 
 Run: `npx vitest run test/throttle.test.ts test/client.test.ts && npx tsc --noEmit`
 Expected: all PASS. If the refused-connection test reports a different code (Node versions differ), print `r.failure` and add that code to `NOT_SENT_CODES` only if it is a pre-send error.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add mcp/src mcp/test
@@ -1423,7 +1425,7 @@ git commit -m "mcp: HTTP client with throttle, per-operation retries and cost ac
   - `errors.ts`: `interface ErrorContext { keySource: string; secrets: string[] }`; `providerMessage(json: unknown, secrets: string[]): string | null`; `describeFailure(r: Fail, ctx: ErrorContext): string`; `shortFailure(r: Fail, ctx: ErrorContext): string` (lower-case clause for "The fourth source (x) ..."); `MAYBE_APPLIED: string`.
   - `cost.ts`: `class CostTracker { add(c: Cost): void; total(): Cost }`; `sumCosts(...cs: Cost[]): Cost`; `costPhrase(c: Cost): string` ("3 queries used, 1 unknown"); `costLine(call: Cost, session: Cost): string`.
 
-- [ ] **Step 1: Write failing tests**
+- [x] **Step 1: Write failing tests**
 
 `mcp/test/errors.test.ts`:
 ```ts
@@ -1505,12 +1507,12 @@ it("tracks a session total and builds the cost line", () => {
 });
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `npx vitest run test/errors.test.ts test/cost.test.ts`
 Expected: FAIL, modules not found.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 `mcp/src/cost.ts`:
 ```ts
@@ -1600,12 +1602,12 @@ export function shortFailure(r: Fail, ctx: ErrorContext): string {
 }
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `npx vitest run test/errors.test.ts test/cost.test.ts && npx tsc --noEmit`
 Expected: all PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add mcp/src mcp/test
@@ -1626,7 +1628,7 @@ git commit -m "mcp: translate API failures into safe messages and cost lines"
   - `results.ts`: `interface StoredResult { mimeType: string; text?: string; blob?: string }`; `class ResultStore { constructor(max?: number); put(item: StoredResult): string /* URI */; get(id: string): StoredResult | undefined }`; `RESULT_URI_PREFIX = "breachsense://results/"`.
   - `shape.ts`: `TOP_N = 25`; `normalizeRows(json: unknown): Row[]`; `countFrom(json: unknown): number | null`; `escapeData(s: string): string`; `dataBlock(rows: Row[]): string`; `interface SummaryInput { display: Display; rows: Row[]; query: string; page: number; partial: boolean; today: Date; resultUri: string | null; topN?: number }`; `interface SearchStructured { source: string; query: string; page: number; rows_on_page: number; partial: boolean; next_page: number | null; fresh: number; recent: number; older: number; undated: number; oldest: string | null; flags: { flag: string; rows: number }[]; top: Row[]; full_result: string | null }`; `summarize(input: SummaryInput): { text: string; structured: SearchStructured }`; `countText(label: string, query: string, n: number): string`.
 
-- [ ] **Step 1: Write failing tests**
+- [x] **Step 1: Write failing tests**
 
 `mcp/test/results.test.ts`:
 ```ts
@@ -1713,12 +1715,12 @@ describe("summarize", () => {
 });
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `npx vitest run test/shape.test.ts test/results.test.ts`
 Expected: FAIL, modules not found.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 `mcp/src/results.ts`:
 ```ts
@@ -1871,12 +1873,12 @@ export function countText(label: string, query: string, n: number): string {
 
 Note: the "older" test expects `older: 1` for 2018 and `recent: 1` for 2026-09-01 (84 days before 2026-11-24). Both hold with the thresholds above.
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `npx vitest run test/shape.test.ts test/results.test.ts && npx tsc --noEmit`
 Expected: all PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add mcp/src mcp/test
@@ -1899,7 +1901,7 @@ git commit -m "mcp: shape API pages into summaries and keep full pages in memory
   - `server.ts`: `createServer(deps: Deps): McpServer`; `createDeps(env: NodeJS.ProcessEnv, home: string): Deps`.
   - `test/helpers.ts`: `TEST_KEY`; `testDeps(baseUrl: string, extra?: Partial<ClientOptions>): Deps`; `connect(deps: Deps): Promise<Client>`; `textOf(res: unknown): string`.
 
-- [ ] **Step 1: Write test helpers and the failing MCP-level test**
+- [x] **Step 1: Write test helpers and the failing MCP-level test**
 
 `mcp/test/helpers.ts`:
 ```ts
@@ -2031,12 +2033,12 @@ describe("MCP server", () => {
 });
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `npx vitest run test/server.test.ts`
 Expected: FAIL, `../src/server` not found.
 
-- [ ] **Step 3: Write the server instructions**
+- [x] **Step 3: Write the server instructions**
 
 `mcp/src/instructions.ts`:
 ```ts
@@ -2054,7 +2056,7 @@ How to use these tools:
 - Searches for example.com and test.com are free; use them to test the connection.`;
 ```
 
-- [ ] **Step 4: Implement `tools/common.ts`**
+- [x] **Step 4: Implement `tools/common.ts`**
 
 `mcp/src/tools/common.ts`:
 ```ts
@@ -2113,7 +2115,7 @@ export function resourceLink(uri: string, name: string, mimeType: string): Conte
 }
 ```
 
-- [ ] **Step 5: Implement `tools/search.ts`**
+- [x] **Step 5: Implement `tools/search.ts`**
 
 `mcp/src/tools/search.ts`:
 ```ts
@@ -2197,7 +2199,7 @@ export function registerDownloadTool(server: McpServer, deps: Deps): void {
 }
 ```
 
-- [ ] **Step 6: Implement `server.ts` and `stdio.ts`**
+- [x] **Step 6: Implement `server.ts` and `stdio.ts`**
 
 `mcp/src/server.ts`:
 ```ts
@@ -2260,12 +2262,12 @@ main().catch((err) => {
 });
 ```
 
-- [ ] **Step 7: Run tests and typecheck**
+- [x] **Step 7: Run tests and typecheck**
 
 Run: `npx vitest run && npx tsc --noEmit`
 Expected: all PASS. If the SDK rejects `structuredContent` for the count result because of `outputSchema`, check that every success includes `source` and `cost`; if the SDK version rejects `z.looseObject` as an output schema, use `z.object({...}).passthrough()` instead and rerun.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add mcp/src mcp/test
@@ -2285,7 +2287,7 @@ git commit -m "mcp: register search tools, results resource and stdio entry poin
 - Consumes: `fetchSearch`, `SearchOutcome` from `tools/search.ts`; `byPath`; `commonParams`, `scopedTerm`, `scopeField`; `shortFailure`; `costLine`, `costPhrase`, `sumCosts`; `dataBlock`.
 - Produces: `registerExposureTool(server: McpServer, deps: Deps): void`; `EXPOSURE_SOURCES = ["/stealer", "/combo", "/creds", "/phish"]`.
 
-- [ ] **Step 1: Write the failing tests (includes the spec's acceptance test)**
+- [x] **Step 1: Write the failing tests (includes the spec's acceptance test)**
 
 `mcp/test/exposure.test.ts`:
 ```ts
@@ -2361,12 +2363,12 @@ describe("check_credential_exposure", () => {
 });
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `npx vitest run test/exposure.test.ts`
 Expected: FAIL, tool `check_credential_exposure` not found.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 `mcp/src/tools/exposure.ts`:
 ```ts
@@ -2449,12 +2451,12 @@ import { registerExposureTool } from "./tools/exposure";
   registerExposureTool(server, deps);
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `npx vitest run && npx tsc --noEmit`
 Expected: all PASS, including the acceptance test.
 
-- [ ] **Step 5: Correct the spec's acceptance cost line**
+- [x] **Step 5: Correct the spec's acceptance cost line**
 
 The spec says "Cost line: 3 queries used, 1 unknown", but the agreed read-retry policy sends the timed-out request twice, so the honest figure is 2 unknown. In `docs/superpowers/specs/2026-11-24-breachsense-mcp-design.md` replace:
 ```
@@ -2465,7 +2467,7 @@ with:
 Cost line: "3 queries used, 2 unknown" (the timed-out source is retried once under the read policy, and both attempts are unknown).
 ```
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add mcp/src mcp/test docs/superpowers/specs/2026-11-24-breachsense-mcp-design.md
@@ -2485,7 +2487,7 @@ git commit -m "mcp: add check_credential_exposure fan-out with per-source covera
 - Consumes: `call`, `okResult`, `errorResult`, `failureResult`, `validationResult`, `setupResult`, `accountOutput` from `tools/common.ts`; `BILLING`; `providerMessage`; `redact`; `costLine`, `sumCosts`; `EMAIL_RE`, `isHttpsUrl`.
 - Produces: `registerAccountTools(server: McpServer, deps: Deps): void`; tools `get_usage`, `get_monitoring_setup`, `manage_watchlist`, `manage_alert_recipients`, `manage_whitelist`, `send_test_alert`.
 
-- [ ] **Step 1: Write failing tests**
+- [x] **Step 1: Write failing tests**
 
 `mcp/test/account.test.ts`:
 ```ts
@@ -2591,12 +2593,12 @@ describe("account tools", () => {
 });
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `npx vitest run test/account.test.ts`
 Expected: FAIL, tools not found.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 `mcp/src/tools/account.ts`:
 ```ts
@@ -2786,12 +2788,12 @@ export function registerAccountTools(server: McpServer, deps: Deps): void {
 
 Modify `mcp/src/server.ts`: add `import { registerAccountTools } from "./tools/account";` and call `registerAccountTools(server, deps);` after `registerExposureTool(server, deps);`.
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `npx vitest run && npx tsc --noEmit`
 Expected: all PASS. If the `Breachsense: ...` text has a doubled period for provider messages ending in "." (e.g. "Asset added."), the `.replace("..", ".")` handles it; keep the expected strings in tests without trailing periods as written.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add mcp/src mcp/test
@@ -2811,7 +2813,7 @@ git commit -m "mcp: add usage, monitoring setup and account change tools"
 - Consumes: `src/stdio.ts`.
 - Produces: `plugins/breachsense/mcp/server.mjs` (single file, runnable with `node`), `mcp/dist-mcpb/` and `breachsense.mcpb` (not committed).
 
-- [ ] **Step 1: Write the build script**
+- [x] **Step 1: Write the build script**
 
 `mcp/build.mjs`:
 ```js
@@ -2839,7 +2841,7 @@ writeFileSync("dist-mcpb/manifest.json", JSON.stringify(manifest, null, 2));
 console.error(`built ${outfile} and dist-mcpb/`);
 ```
 
-- [ ] **Step 2: Write the Desktop manifest and the plugin MCP config**
+- [x] **Step 2: Write the Desktop manifest and the plugin MCP config**
 
 `mcp/mcpb/manifest.json`:
 ```json
@@ -2886,7 +2888,7 @@ console.error(`built ${outfile} and dist-mcpb/`);
 }
 ```
 
-- [ ] **Step 3: Write the stdio smoke test**
+- [x] **Step 3: Write the stdio smoke test**
 
 `mcp/scripts/smoke-stdio.mjs`:
 ```js
@@ -2909,7 +2911,7 @@ console.log("smoke OK");
 await client.close();
 ```
 
-- [ ] **Step 4: Build, run the smoke test, validate the Desktop manifest**
+- [x] **Step 4: Build, run the smoke test, validate the Desktop manifest**
 
 Run:
 ```bash
@@ -2923,11 +2925,11 @@ grep -cE "testkey_|/Users/" ../plugins/breachsense/mcp/server.mjs
 ```
 Expected: `0`.
 
-- [ ] **Step 5: Bump versions**
+- [x] **Step 5: Bump versions**
 
 In `plugins/breachsense/.claude-plugin/plugin.json` change `"version": "1.3.3"` to `"version": "1.4.0"`, and add `"mcp"` to `keywords`. In `.claude-plugin/marketplace.json` change every `1.3.3` for the breachsense plugin to `1.4.0` (read the file first; it holds both the marketplace and plugin entry versions).
 
-- [ ] **Step 6: Document setup in the README**
+- [x] **Step 6: Document setup in the README**
 
 Read `README.md`, then add this section after the existing installation section (keep the existing wording style; no em-dashes):
 ```markdown
@@ -2944,7 +2946,7 @@ The plugin now includes a Breachsense MCP server, so Claude can call typed tools
 Every search page costs one query from your monthly allowance, and each tool says what it costs. Searches for `example.com` and `test.com` are free, so you can test the connection with them.
 ```
 
-- [ ] **Step 7: Point the skill at the MCP tools**
+- [x] **Step 7: Point the skill at the MCP tools**
 
 In `plugins/breachsense/skills/query/SKILL.md`, insert directly after the `# Breachsense` heading's intro paragraph:
 ```markdown
@@ -2953,7 +2955,7 @@ In `plugins/breachsense/skills/query/SKILL.md`, insert directly after the `# Bre
 If tools named `search_stealer_logs`, `check_credential_exposure`, `get_usage` and so on are available, use them instead of curl. They handle the key, rate limiting, paging, cost reporting and result summaries. The rest of this skill still applies to how you present results, and the curl reference below is for environments without the MCP server.
 ```
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 cd ~/breachsense-plugins
@@ -2971,11 +2973,11 @@ This task spends a handful of real queries and needs a real license key. **Do no
 **Files:**
 - Modify: `mcp/src/billing.ts` (only if verification shows a value should change), `docs/superpowers/specs/2026-11-24-breachsense-mcp-design.md` (record findings)
 
-- [ ] **Step 1: Ask the user for permission and for the key to be present in `BREACHSENSE_API_KEY`**
+- [x] **Step 1: Ask the user for permission and for the key to be present in `BREACHSENSE_API_KEY`**
 
 State: "This spends up to 4 real queries to check whether the remaining-quota call and /account list calls are billed. OK?" Wait for a yes.
 
-- [ ] **Step 2: Measure with the audit log**
+- [x] **Step 2: Measure with the audit log**
 
 Run (the key is read from the environment by curl's header expansion; it does not appear in output):
 ```bash
@@ -2988,11 +2990,11 @@ curl -s -A "$UA" -H "$H" "https://api.breachsense.com/account?action=audit&days=
 ```
 Expected: compare the three `Remaining` numbers and the audit events. If `Remaining` did not drop between the first two calls and `?r` calls are absent from the audit log, `remaining` is free. If it did not drop after `action=list`, account reads are free.
 
-- [ ] **Step 3: Update `billing.ts` from the evidence**
+- [x] **Step 3: Update `billing.ts` from the evidence**
 
 Set `remaining` and/or `account` to `"none"` only where the evidence shows they are not counted; set to `"billed"` where they are. Leave `"unknown"` if the evidence is inconclusive. Run `npm run check` and the smoke test again.
 
-- [ ] **Step 4: Record findings and commit**
+- [x] **Step 4: Record findings and commit**
 
 Replace the "Open items to verify during implementation" section of the spec with the observed results and the date. Then:
 ```bash
