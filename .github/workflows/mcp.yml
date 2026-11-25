@@ -56,6 +56,13 @@ jobs:
         run: |
           v=$(node -p "require('./package.json').version")
           if [ "mcp-v$v" != "$GITHUB_REF_NAME" ]; then echo "tag $GITHUB_REF_NAME does not match package version $v"; exit 1; fi
+      - name: Trusted publishing preflight (clear error instead of ENEEDAUTH)
+        run: |
+          want="git+https://github.com/$GITHUB_REPOSITORY.git"
+          got=$(node -p "require('./package.json').repository.url")
+          if [ "$got" != "$want" ]; then echo "package.json repository.url is $got, npm trusted publishing needs $want"; exit 1; fi
+          wf="${GITHUB_WORKFLOW_REF%%@*}"; wf="${wf##*/}"
+          if [ "$wf" != "mcp.yml" ]; then echo "running from workflow $wf; the npm trusted publisher is configured for mcp.yml"; exit 1; fi
       - run: npm run build
       - run: npm run smoke:pack
       - name: Stage on npm (approve with 2FA on npmjs.com to publish)

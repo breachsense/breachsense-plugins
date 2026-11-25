@@ -19,7 +19,7 @@ The server code is already client-neutral: plain MCP over stdio, written with th
 
 ### Package
 
-- Name: `@breachsense/mcp` in the npm org `breachsense`. The registry shows that org with one owner, npm user `breachsense`; an org `breachsense.com` also exists. Before the first publish, the owner confirms that `breachsense` is their account (the bootstrap script refuses otherwise).
+- Name: `@breachsense/mcp`. The `@breachsense` scope is the personal scope of npm user `breachsense`, the account the owner signs in to (confirmed 2026-11-26). npm reserves `@<username>` for every account. The separate `breachsense.com` org is unrelated.
 - Users run it pinned to the major version: `npx -y @breachsense/mcp@1`. The docs explain the pin and how to pin an exact version. Unpinned `npx` re-resolves to the newest version on every cold start, so a bad or compromised release would reach everyone at once.
 - Package contents, exactly: `dist/server.mjs` (the esbuild bundle, shebang added at build time, every dependency inlined), `dist/sbom.cdx.json`, README.md, LICENSE and package.json.
 - `publishConfig.access: public`. Scoped packages default to restricted.
@@ -60,18 +60,30 @@ Workflow `.github/workflows/mcp.yml`. The trusted publisher config matches this 
 
 **One-time bootstrap.** Trusted publishing can only be configured on a package that already exists. The owner runs `scripts/bootstrap-npm.sh` from a logged-in npm session, so no token is ever created. The script:
 
-- checks that the user is an owner or admin of the `breachsense` org;
+- checks that the user is an owner or admin of the scope;
 - runs check and the smoke tests;
 - stages a throwaway `0.0.1-bootstrap.0`. On a new package, npm also shows a public `0.0.0-stage` placeholder.
 
-The owner then:
+It then prints the remaining steps. Their order matters:
 
-1. Adds the trusted publisher: repository `breachsense/breachsense-plugins`, workflow `mcp.yml`, staged publish only.
-2. Rejects the bootstrap version.
-3. Turns on "Require two-factor authentication and disallow tokens" for the package. OIDC keeps working.
-4. Pushes `mcp-v1.0.0`.
+1. **Add the trusted publisher** on the package: repository `breachsense/breachsense-plugins`, workflow `mcp.yml`, staged publish only. npm validates these fields only at publish time.
+2. **Reject `0.0.1-bootstrap.0`**, only after step 1.
+3. **Run `bootstrap-npm.sh verify`.** npm's docs don't say whether rejecting the only staged version of a never-published package removes the package entry. If it does, the trusted publisher loses its target. `verify` checks the registry entry. If the entry is gone, it prints the fallback:
+   - turn off "disallow tokens" if it was enabled;
+   - genuinely `npm publish --tag bootstrap` the `0.0.1-bootstrap.0`;
+   - `npm deprecate` it;
+   - re-add the trusted publisher.
+4. **Turn on "Require two-factor authentication and disallow tokens".** From then on, local publishing fails, including re-running the bootstrap. To retry locally, turn it off first.
+5. **Push `mcp-v1.0.0`.**
+6. **Approve the staged 1.0.0 with 2FA the same day.** A new trusted publisher config expires unless its first successful publish happens within 2 days, and a version that is only staged may not count. If the config expires, delete and re-create it, then push a patch tag. That is recoverable, not fatal.
 
-A new trusted publisher config must complete its first publish within 2 days or it expires. Push the tag the same day.
+**Configuration typos are caught early.** npm checks the repository, the workflow filename (case-sensitive) and a GitHub-hosted runner only at publish time. A mismatch shows up on the tag push as a confusing `ENEEDAUTH`. Two checks catch it before then:
+
+- PR tests (`test/version.test.ts`) assert:
+  - `repository.url` is exactly `git+https://github.com/breachsense/breachsense-plugins.git`;
+  - the release job lives in `.github/workflows/mcp.yml` and runs `npm stage publish` on `ubuntu-latest` with `id-token: write`;
+  - no token is referenced anywhere.
+- The release job's preflight step checks `repository.url` against `$GITHUB_REPOSITORY`, and the running workflow file against `mcp.yml`, with a readable error.
 
 **Rollback.** `npm unpublish` works only for 72 hours, and a pinned major keeps resolving to the newest 1.x. The real path is therefore:
 
