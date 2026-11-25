@@ -36935,7 +36935,7 @@ var Throttle = class {
 };
 
 // src/version.ts
-var VERSION = "0.1.0";
+var VERSION = "1.0.0";
 
 // src/client.ts
 var MAX_BODY_BYTES = 20 * 1024 * 1024;
@@ -37159,7 +37159,7 @@ var BreachsenseClient = class {
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 var DEFAULT_BASE_URL = "https://api.breachsense.com";
-var SETUP_MESSAGE = "No Breachsense license key found, so no query was sent. Set the BREACHSENSE_API_KEY environment variable, or create ~/.config/breachsense/license.md containing only the key, then restart this MCP server. In Claude Desktop, enter the key in the Breachsense extension settings.";
+var SETUP_MESSAGE = "No Breachsense license key found, so no query was sent. Add BREACHSENSE_API_KEY to the env section of this MCP server in your AI tool's settings, or create ~/.config/breachsense/license.md containing only the key, then restart the MCP server. If you installed the Breachsense desktop extension, enter the key in its settings.";
 var KEY_RE = /^[A-Za-z0-9_-]{16,}$/;
 function parseLicenseFile(text) {
   for (const raw of text.split(/\r?\n/)) {

@@ -6,9 +6,9 @@ export const DEFAULT_BASE_URL = "https://api.breachsense.com";
 export interface License { key: string; source: string }
 
 export const SETUP_MESSAGE =
-  "No Breachsense license key found, so no query was sent. Set the BREACHSENSE_API_KEY environment variable, " +
-  "or create ~/.config/breachsense/license.md containing only the key, then restart this MCP server. " +
-  "In Claude Desktop, enter the key in the Breachsense extension settings.";
+  "No Breachsense license key found, so no query was sent. Add BREACHSENSE_API_KEY to the env section of this " +
+  "MCP server in your AI tool's settings, or create ~/.config/breachsense/license.md containing only the key, " +
+  "then restart the MCP server. If you installed the Breachsense desktop extension, enter the key in its settings.";
 
 const KEY_RE = /^[A-Za-z0-9_-]{16,}$/;
 

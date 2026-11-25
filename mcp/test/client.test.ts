@@ -1,3 +1,4 @@
+import { VERSION } from "../src/version";
 import { afterEach, describe, expect, it } from "vitest";
 import { BreachsenseClient, buildUrl, isFreeTerm, type ClientOptions } from "../src/client";
 import { startFakeApi, type FakeApi, type FakeReply } from "./fake-api";
@@ -38,7 +39,7 @@ describe("BreachsenseClient", () => {
     const a = await serve([{ json: [] }]);
     await client(a.url).c.request(search);
     expect(a.calls[0].headers.lic).toBe(KEY);
-    expect(a.calls[0].headers["user-agent"]).toBe("breachsense-mcp/0.1.0");
+    expect(a.calls[0].headers["user-agent"]).toBe(`breachsense-mcp/${VERSION}`);
     expect(a.calls[0].query).not.toContain(KEY);
   });
   it("200 is a complete, billed success", async () => {
@@ -195,7 +196,7 @@ describe("download redirect (S3) and body caps", () => {
       expect(s3.calls).toHaveLength(1);
       expect(s3.calls[0].path).toBe("/bucket/abc");
       expect(s3.calls[0].headers.lic).toBeUndefined();
-      expect(s3.calls[0].headers["user-agent"]).toBe("breachsense-mcp/0.1.0");
+      expect(s3.calls[0].headers["user-agent"]).toBe(`breachsense-mcp/${VERSION}`);
       expect(JSON.stringify(s3.calls[0].headers)).not.toContain(KEY);
       expect(r).toMatchObject({ ok: true, status: 200, text: "<html>original doc</html>", contentType: "text/html", cost: { used: 1, unknown: 0 } });
     } finally { await s3.close(); }

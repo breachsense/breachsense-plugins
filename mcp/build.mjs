@@ -13,10 +13,14 @@ await build({
   banner: { js: "#!/usr/bin/env node\nimport { createRequire as __cr } from 'node:module'; const require = __cr(import.meta.url);" },
 });
 
+// npm package entry (the `breachsense-mcp` bin). Same bundle, not committed.
+mkdirSync("dist", { recursive: true });
+cpSync(outfile, "dist/server.mjs");
+
 // Claude Desktop bundle staging directory (packed with @anthropic-ai/mcpb, not committed).
 mkdirSync("dist-mcpb/server", { recursive: true });
 cpSync(outfile, "dist-mcpb/server/index.mjs");
 const manifest = JSON.parse(readFileSync("mcpb/manifest.json", "utf8"));
 manifest.version = JSON.parse(readFileSync("package.json", "utf8")).version;
 writeFileSync("dist-mcpb/manifest.json", JSON.stringify(manifest, null, 2));
-console.error(`built ${outfile} and dist-mcpb/`);
+console.error(`built ${outfile}, dist/server.mjs and dist-mcpb/`);
