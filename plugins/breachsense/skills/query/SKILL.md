@@ -9,6 +9,10 @@ Breachsense ([breachsense.com](https://breachsense.com)) is a breach-data platfo
 
 This skill covers **11 endpoints**. All requests go to `https://api.breachsense.com` and require a license key.
 
+## Prefer the MCP tools when they are available
+
+If tools named `search_stealer_logs`, `check_credential_exposure`, `get_usage` and so on are available, use them instead of curl. They handle the key, rate limiting, paging, cost reporting and result summaries. The rest of this skill still applies to how you present results, and the curl reference below is for environments without the MCP server.
+
 ---
 
 ## License key
@@ -76,7 +80,7 @@ When the allowance is exhausted, every search endpoint returns HTTP `403` with `
 | `s` | The search term (alias `search`). | URL-encode it. |
 | `p` | Page number, starting at 1. | See Pagination. |
 | `date` | `YYYYMMDD`: only records on or after this date. | Also accepts unixtime on most endpoints. `/sessions` and `/docs` take `YYYYMMDD` only. Use it to answer "anything new since X" or "last 6 months" without paging old data. |
-| `count` | Return only the total number of matches, as `{"cnt": N}` (`/docs`: `{"count": N}`). | Replaces the results. Still counts as a query. |
+| `count` | Return only the total number of matches, as `{"cnt": N}` (`/docs`: `{"count": N}`). | Replaces the results. Free on every endpoint. |
 | `r` | Return remaining monthly queries, as `{"Remaining": N}`. | Not on `/asm` or `/docs`. |
 | `update` | Return when that dataset was last updated. | Not on `/asm`. |
 | `unixtime` | Dates as unixtime instead of `YYYYMMDD` (aliases `unix`, `epoch`). | Ignored by `/sessions`, `/asm`, `/docs`. |
@@ -557,7 +561,7 @@ After results, suggest **one** next move, the one most relevant to what the user
 | `401` | `/account`: invalid license ("Please use a valid license.") |
 | `403` | Invalid or expired license, monthly query limit reached (`"message": "Monthly query limit reached. ..."` with `limit` / `used`), or the endpoint isn't in the customer's plan (`{"error": "Your plan does not include /x.", ...}`). Read the message to tell which. |
 | `422` | Rotation with no recipient configured |
-| `429` | Rate limited. Back off and retry. |
+| `429` | Rate limited. Back off and retry. A `429` is not counted as a query. |
 | `500` | Server error. Contact support@breachsense.com |
 
 An unknown path returns an HTML page, not JSON. Check the endpoint name.

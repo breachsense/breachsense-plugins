@@ -65,6 +65,24 @@ chmod 600 ~/.config/breachsense/license.md
 
 Use this if you'd rather not touch your shell config. The older `~/.claude/breachsense/license.md` location still works.
 
+## MCP server
+
+The plugin now includes a Breachsense MCP server, so Claude can call typed tools instead of writing curl commands. It reads your license key from `BREACHSENSE_API_KEY` or `~/.config/breachsense/license.md`, exactly like the skill.
+
+**Claude Code:** installing or updating the plugin (`/plugin install breachsense@breachsense`) sets up the server automatically. Run `/mcp` to confirm `breachsense` is connected.
+
+**Claude Desktop:** build the Desktop extension from this repo (needs Node.js 20 or newer):
+
+```bash
+cd mcp && npm ci && npm run build && npx -y @anthropic-ai/mcpb@2.1.2 pack dist-mcpb breachsense.mcpb
+```
+
+Then open `mcp/breachsense.mcpb` and enter your license key when asked. Desktop keeps the key in your system keychain.
+
+**Other MCP clients:** run `node /path/to/plugins/breachsense/mcp/server.mjs` as a stdio server with `BREACHSENSE_API_KEY` set.
+
+Every search page costs one query from your monthly allowance, and each tool says what it costs. Searches for `example.com` and `test.com` are free, so you can test the connection with them.
+
 ## Try it
 
 After install, ask things like:
