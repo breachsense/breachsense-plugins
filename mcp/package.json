@@ -1,25 +1,64 @@
 {
   "name": "@breachsense/mcp",
-  "version": "0.1.0",
-  "private": true,
+  "version": "1.0.0",
+  "description": "Breachsense MCP server: search stealer logs, combo lists, breach credentials, phishing captures, session cookies, leaked secrets, ransomware leaks, forum mentions, leaked documents and attack surface from any MCP client.",
   "type": "module",
-  "description": "Breachsense MCP server",
   "license": "MIT",
-  "engines": { "node": ">=20" },
+  "author": {
+    "name": "Breachsense",
+    "email": "support@breachsense.com",
+    "url": "https://breachsense.com"
+  },
+  "homepage": "https://github.com/breachsense/breachsense-plugins/tree/main/mcp#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/breachsense/breachsense-plugins.git",
+    "directory": "mcp"
+  },
+  "bugs": {
+    "url": "https://github.com/breachsense/breachsense-plugins/issues"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "breachsense",
+    "threat-intel",
+    "breach",
+    "stealer",
+    "credentials",
+    "darkweb",
+    "osint",
+    "security"
+  ],
+  "bin": {
+    "breachsense-mcp": "dist/server.mjs"
+  },
+  "files": [
+    "dist/server.mjs",
+    "dist/sbom.cdx.json",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "build": "node build.mjs",
-    "check": "npm run typecheck && npm test && npm run build"
-  },
-  "dependencies": {
-    "@modelcontextprotocol/sdk": "1.32.2",
-    "zod": "4.6.7"
+    "check": "npm run typecheck && npm test && npm run build",
+    "smoke": "node scripts/smoke-stdio.mjs",
+    "smoke:pack": "node scripts/smoke-pack.mjs"
   },
   "devDependencies": {
+    "@modelcontextprotocol/sdk": "1.32.2",
     "@types/node": "22.20.5",
     "esbuild": "0.28.2",
     "typescript": "5.9.3",
-    "vitest": "5.1.1"
+    "vitest": "5.1.1",
+    "zod": "4.6.7"
   }
 }

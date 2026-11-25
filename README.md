@@ -1,8 +1,13 @@
-# Breachsense Skill for Claude Code, Codex and GitHub Copilot
+# Breachsense for AI tools
 
-Query the [Breachsense](https://breachsense.com) breach-data platform in plain English from Claude Code, Claude Desktop, OpenAI Codex or GitHub Copilot.
+Query the [Breachsense](https://breachsense.com) breach-data platform in plain English from your AI tool. This repo ships two things:
 
-The skill loads all 11 Breachsense API endpoints (stealer, combo, creds, sessions, nhi, phish, radar, darkweb, docs, asm, and account) into your AI assistant. Ask in plain English and get a summary back instead of raw JSON.
+- **MCP server** (`@breachsense/mcp`). Typed tools for all 11 Breachsense APIs, usable from any MCP client: Claude Code, Claude Desktop, Cursor, VS Code/Copilot, Windsurf, Codex CLI, Gemini CLI, Cline, Zed and agent frameworks. Setup for each tool: [mcp/README.md](mcp/README.md).
+- **Agent skill.** Plain-English guidance that teaches the assistant how to query the APIs and summarize the results, for Claude Code, Codex and GitHub Copilot.
+
+The Claude Code plugin installs both. Every other tool connects to the MCP server with one line: `npx -y @breachsense/mcp@1` (pinned to major version 1; see [mcp/README.md](mcp/README.md) for exact pins and the SBOM).
+
+The skill covers all 11 Breachsense API endpoints (stealer, combo, creds, sessions, nhi, phish, radar, darkweb, docs, asm, and account). Ask in plain English and get a summary back instead of raw JSON.
 
 ## Install
 
@@ -67,21 +72,17 @@ Use this if you'd rather not touch your shell config. The older `~/.claude/breac
 
 ## MCP server
 
-The plugin now includes a Breachsense MCP server, so Claude can call typed tools instead of writing curl commands. It reads your license key from `BREACHSENSE_API_KEY` or `~/.config/breachsense/license.md`, exactly like the skill.
+The MCP server reads your license key from `BREACHSENSE_API_KEY` or `~/.config/breachsense/license.md`, exactly like the skill.
 
-**Claude Code:** installing or updating the plugin (`/plugin install breachsense@breachsense`) sets up the server automatically. Run `/mcp` to confirm `breachsense` is connected.
+| Your tool | How to connect |
+|---|---|
+| Claude Code | Installing the plugin sets it up. Run `/mcp` to confirm `breachsense` is connected. |
+| Claude Desktop | Download `breachsense.mcpb` from the [latest release](https://github.com/breachsense/breachsense-plugins/releases) and open it. |
+| Cursor, VS Code/Copilot, Windsurf, Codex CLI, Gemini CLI, Cline, Zed | Add a stdio server that runs `npx -y @breachsense/mcp@1`. Copy-paste configs: [mcp/README.md](mcp/README.md#2-connect-your-ai-tool). |
+| Agent frameworks (OpenAI Agents SDK, Claude Agent SDK, MCP SDKs) | Same command over stdio. Examples: [mcp/README.md](mcp/README.md#agent-frameworks). |
+| ChatGPT, claude.ai | These need a hosted MCP server, which is planned. |
 
-**Claude Desktop:** build the Desktop extension from this repo (needs Node.js 20 or newer):
-
-```bash
-cd mcp && npm ci && npm run build && npx -y @anthropic-ai/mcpb@2.1.2 pack dist-mcpb breachsense.mcpb
-```
-
-Then open `mcp/breachsense.mcpb` and enter your license key when asked. Desktop keeps the key in your system keychain.
-
-**Other MCP clients:** run `node /path/to/plugins/breachsense/mcp/server.mjs` as a stdio server with `BREACHSENSE_API_KEY` set.
-
-Every search page costs one query from your monthly allowance, and each tool says what it costs. Searches for `example.com` and `test.com` are free, so you can test the connection with them.
+Every search page costs one query from your monthly allowance, and each tool says what it costs. Count-only searches are free, and so are searches for `example.com` and `test.com`, so you can test the connection with them.
 
 ## Try it
 
