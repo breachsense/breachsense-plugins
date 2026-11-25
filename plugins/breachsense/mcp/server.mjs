@@ -38248,7 +38248,7 @@ async function main() {
   secrets = deps.secrets;
   const server = createServer(deps);
   await server.connect(new StdioServerTransport());
-  console.error(deps.client ? "breachsense-mcp ready" : "breachsense-mcp ready (no license key found; tools will explain how to add one)");
+  console.error(deps.client ? `breachsense-mcp ${VERSION} ready (license key from ${deps.keySource})` : `breachsense-mcp ${VERSION} ready (no license key found; tools will explain how to add one)`);
 }
 main().catch((err) => {
   console.error(`breachsense-mcp failed to start: ${redact(err instanceof Error ? err.message : "unknown error", secrets)}`);
