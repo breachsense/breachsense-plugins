@@ -5,10 +5,12 @@ Search [Breachsense](https://breachsense.com) breach data from any AI tool that 
 Every tool runs the same server:
 
 ```
-npx -y @breachsense/mcp
+npx -y @breachsense/mcp@1
 ```
 
 It needs Node.js 20 or newer and your Breachsense license key.
+
+**Pin the version.** The configs below use `@breachsense/mcp@1`, so you get fixes but never a new major version without choosing it. Unpinned `npx -y @breachsense/mcp` fetches whatever is newest on every cold start. For locked-down environments, pin an exact release (for example `@breachsense/mcp@1.0.0`) and update deliberately. Every release is published from GitHub Actions with npm provenance. Each release also ships a CycloneDX SBOM (`dist/sbom.cdx.json` in the package, `sbom.cdx.json` on the GitHub release) listing every library bundled into the server, because the package itself has no npm dependencies for your SCA tools to see.
 
 ## 1. Add your license key
 
@@ -26,7 +28,13 @@ Pick one:
 
 - **Environment variable.** Set `BREACHSENSE_API_KEY` in the server's `env` block, as the examples below show.
 
-If no key is found, the server still starts. Each tool then explains how to add one, and no query is sent.
+The server takes the first key it finds, in this order:
+
+1. the `BREACHSENSE_API_KEY` environment variable
+2. `~/.config/breachsense/license.md`
+3. `~/.claude/breachsense/license.md` (older location, still supported)
+
+Both files are in your home folder, never inside a project, so they can't end up in a repository. On startup, the server logs which source it used to stderr, without the key (for example `license key from /Users/you/.config/breachsense/license.md`). Your AI tool's MCP log shows this line. If no key is found, the server still starts. Each tool then explains how to add one, and no query is sent.
 
 ## 2. Connect your AI tool
 
@@ -39,7 +47,7 @@ Install the plugin. It bundles this server together with the Breachsense skill:
 /plugin install breachsense@breachsense
 ```
 
-Or add only the server: `claude mcp add breachsense -s user -- npx -y @breachsense/mcp`
+Or add only the server: `claude mcp add breachsense -s user -- npx -y @breachsense/mcp@1`
 
 ### Claude Desktop
 
@@ -52,7 +60,7 @@ You can also add the server by hand. Open Settings, then Developer, then Edit Co
   "mcpServers": {
     "breachsense": {
       "command": "npx",
-      "args": ["-y", "@breachsense/mcp"],
+      "args": ["-y", "@breachsense/mcp@1"],
       "env": { "BREACHSENSE_API_KEY": "your-license-key" }
     }
   }
@@ -68,7 +76,7 @@ Use `~/.cursor/mcp.json` for all projects, or `.cursor/mcp.json` in one project:
   "mcpServers": {
     "breachsense": {
       "command": "npx",
-      "args": ["-y", "@breachsense/mcp"],
+      "args": ["-y", "@breachsense/mcp@1"],
       "env": { "BREACHSENSE_API_KEY": "your-license-key" }
     }
   }
@@ -88,7 +96,7 @@ Add this to `.vscode/mcp.json`, or run **MCP: Open User Configuration** to make 
     "breachsense": {
       "type": "stdio",
       "command": "npx",
-      "args": ["-y", "@breachsense/mcp"],
+      "args": ["-y", "@breachsense/mcp@1"],
       "env": { "BREACHSENSE_API_KEY": "${input:breachsense-key}" }
     }
   }
@@ -104,7 +112,7 @@ Add this to `~/.codeium/windsurf/mcp_config.json`:
   "mcpServers": {
     "breachsense": {
       "command": "npx",
-      "args": ["-y", "@breachsense/mcp"],
+      "args": ["-y", "@breachsense/mcp@1"],
       "env": { "BREACHSENSE_API_KEY": "your-license-key" }
     }
   }
@@ -118,7 +126,7 @@ Add this to `~/.codex/config.toml`. `env_vars` passes your shell's `BREACHSENSE_
 ```toml
 [mcp_servers.breachsense]
 command = "npx"
-args = ["-y", "@breachsense/mcp"]
+args = ["-y", "@breachsense/mcp@1"]
 env_vars = ["BREACHSENSE_API_KEY"]
 ```
 
@@ -131,7 +139,7 @@ Add this to `~/.gemini/settings.json`. `$BREACHSENSE_API_KEY` is read from your 
   "mcpServers": {
     "breachsense": {
       "command": "npx",
-      "args": ["-y", "@breachsense/mcp"],
+      "args": ["-y", "@breachsense/mcp@1"],
       "env": { "BREACHSENSE_API_KEY": "$BREACHSENSE_API_KEY" }
     }
   }
@@ -147,7 +155,7 @@ Open the MCP Servers panel, then Configure, and add this to `cline_mcp_settings.
   "mcpServers": {
     "breachsense": {
       "command": "npx",
-      "args": ["-y", "@breachsense/mcp"],
+      "args": ["-y", "@breachsense/mcp@1"],
       "env": { "BREACHSENSE_API_KEY": "your-license-key" }
     }
   }
@@ -163,7 +171,7 @@ Add this to your Zed `settings.json` (the **zed: open settings file** command op
   "context_servers": {
     "breachsense": {
       "command": "npx",
-      "args": ["-y", "@breachsense/mcp"],
+      "args": ["-y", "@breachsense/mcp@1"],
       "env": { "BREACHSENSE_API_KEY": "your-license-key" }
     }
   }
@@ -172,7 +180,7 @@ Add this to your Zed `settings.json` (the **zed: open settings file** command op
 
 ### Any other MCP client
 
-Start it as a stdio server with command `npx` and args `["-y", "@breachsense/mcp"]`, and set `BREACHSENSE_API_KEY`. To skip the npx download on every start, install it globally (`npm i -g @breachsense/mcp`) and use the command `breachsense-mcp`.
+Start it as a stdio server with command `npx` and args `["-y", "@breachsense/mcp@1"]`, and set `BREACHSENSE_API_KEY`. To skip the npx download on every start, install it globally (`npm i -g @breachsense/mcp@1`) and use the command `breachsense-mcp`.
 
 ### Agent frameworks
 
@@ -182,7 +190,7 @@ OpenAI Agents SDK (Python):
 from agents import Agent, Runner
 from agents.mcp import MCPServerStdio
 
-async with MCPServerStdio(params={"command": "npx", "args": ["-y", "@breachsense/mcp"]}) as breachsense:
+async with MCPServerStdio(params={"command": "npx", "args": ["-y", "@breachsense/mcp@1"]}) as breachsense:
     agent = Agent(name="Analyst", instructions="Investigate exposure.", mcp_servers=[breachsense])
     result = await Runner.run(agent, "Count stealer log hits for acme.com")
 ```
@@ -193,7 +201,7 @@ Claude Agent SDK (Python):
 from claude_agent_sdk import ClaudeAgentOptions, query
 
 options = ClaudeAgentOptions(
-    mcp_servers={"breachsense": {"command": "npx", "args": ["-y", "@breachsense/mcp"]}},
+    mcp_servers={"breachsense": {"command": "npx", "args": ["-y", "@breachsense/mcp@1"]}},
     allowed_tools=["mcp__breachsense__*"],
 )
 async for message in query(prompt="Count stealer log hits for acme.com", options=options):
@@ -207,7 +215,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 
 const client = new Client({ name: "my-agent", version: "1.0.0" });
-await client.connect(new StdioClientTransport({ command: "npx", args: ["-y", "@breachsense/mcp"] }));
+await client.connect(new StdioClientTransport({ command: "npx", args: ["-y", "@breachsense/mcp@1"] }));
 const result = await client.callTool({ name: "search_stealer_logs", arguments: { query: "acme.com", count_only: true } });
 ```
 

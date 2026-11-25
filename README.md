@@ -5,7 +5,7 @@ Query the [Breachsense](https://breachsense.com) breach-data platform in plain E
 - **MCP server** (`@breachsense/mcp`). Typed tools for all 11 Breachsense APIs, usable from any MCP client: Claude Code, Claude Desktop, Cursor, VS Code/Copilot, Windsurf, Codex CLI, Gemini CLI, Cline, Zed and agent frameworks. Setup for each tool: [mcp/README.md](mcp/README.md).
 - **Agent skill.** Plain-English guidance that teaches the assistant how to query the APIs and summarize the results, for Claude Code, Codex and GitHub Copilot.
 
-The Claude Code plugin installs both. Every other tool connects to the MCP server with one line: `npx -y @breachsense/mcp`.
+The Claude Code plugin installs both. Every other tool connects to the MCP server with one line: `npx -y @breachsense/mcp@1` (pinned to major version 1; see [mcp/README.md](mcp/README.md) for exact pins and the SBOM).
 
 The skill covers all 11 Breachsense API endpoints (stealer, combo, creds, sessions, nhi, phish, radar, darkweb, docs, asm, and account). Ask in plain English and get a summary back instead of raw JSON.
 
@@ -78,7 +78,7 @@ The MCP server reads your license key from `BREACHSENSE_API_KEY` or `~/.config/b
 |---|---|
 | Claude Code | Installing the plugin sets it up. Run `/mcp` to confirm `breachsense` is connected. |
 | Claude Desktop | Download `breachsense.mcpb` from the [latest release](https://github.com/breachsense/breachsense-plugins/releases) and open it. |
-| Cursor, VS Code/Copilot, Windsurf, Codex CLI, Gemini CLI, Cline, Zed | Add a stdio server that runs `npx -y @breachsense/mcp`. Copy-paste configs: [mcp/README.md](mcp/README.md#2-connect-your-ai-tool). |
+| Cursor, VS Code/Copilot, Windsurf, Codex CLI, Gemini CLI, Cline, Zed | Add a stdio server that runs `npx -y @breachsense/mcp@1`. Copy-paste configs: [mcp/README.md](mcp/README.md#2-connect-your-ai-tool). |
 | Agent frameworks (OpenAI Agents SDK, Claude Agent SDK, MCP SDKs) | Same command over stdio. Examples: [mcp/README.md](mcp/README.md#agent-frameworks). |
 | ChatGPT, claude.ai | These need a hosted MCP server, which is planned. |
 

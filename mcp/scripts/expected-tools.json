@@ -1,0 +1,20 @@
+[
+  "check_credential_exposure",
+  "download_document",
+  "get_attack_surface",
+  "get_monitoring_setup",
+  "get_usage",
+  "manage_alert_recipients",
+  "manage_watchlist",
+  "manage_whitelist",
+  "search_breach_credentials",
+  "search_combo_lists",
+  "search_documents",
+  "search_forum_mentions",
+  "search_leaked_secrets",
+  "search_phishing_captures",
+  "search_ransomware_leaks",
+  "search_session_cookies",
+  "search_stealer_logs",
+  "send_test_alert"
+]

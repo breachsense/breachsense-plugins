@@ -1,6 +1,6 @@
 # Breachsense MCP for any AI tool: design
 
-Status: approved 2026-11-25 (project 1 of 2). Project 2, the hosted server, is not started.
+Status: approved 2026-11-25 (project 1 of 2), revised after review the same day (trusted publishing, staged releases, SBOM, pinning, tool snapshot). Project 2, the hosted server, is not started.
 Date: 2026-11-25
 
 ## Goal
@@ -19,9 +19,10 @@ The server code is already client-neutral: plain MCP over stdio, written with th
 
 ### Package
 
-- Name: `@breachsense/mcp` in the npm org `breachsense` (created 2026-11-25, owner account support@breachsense.com).
-- Users run it with: `npx -y @breachsense/mcp`.
-- Package contents: the esbuild bundle `dist/server.mjs` (shebang, every dependency inlined), plus README.md and LICENSE.
+- Name: `@breachsense/mcp` in the npm org `breachsense`. The registry shows that org with one owner, npm user `breachsense`; an org `breachsense.com` also exists. Before the first publish, the owner confirms that `breachsense` is their account (the bootstrap script refuses otherwise).
+- Users run it pinned to the major version: `npx -y @breachsense/mcp@1`. The docs explain the pin and how to pin an exact version. Unpinned `npx` re-resolves to the newest version on every cold start, so a bad or compromised release would reach everyone at once.
+- Package contents, exactly: `dist/server.mjs` (the esbuild bundle, shebang added at build time, every dependency inlined), `dist/sbom.cdx.json`, README.md, LICENSE and package.json.
+- `publishConfig.access: public`. Scoped packages default to restricted.
   - Runtime dependencies are empty, so `npx` downloads one small tarball and installs nothing else.
   - The SDK and zod move to devDependencies.
 - `bin`: `breachsense-mcp` points to `dist/server.mjs`.
@@ -34,19 +35,49 @@ The server code is already client-neutral: plain MCP over stdio, written with th
 ### Code changes
 
 - `SETUP_MESSAGE` no longer names one client. It says to set `BREACHSENSE_API_KEY` in the tool's MCP server config (Claude Desktop: extension settings), or to create `~/.config/breachsense/license.md`.
-- The `~/.claude/breachsense/license.md` fallback stays, for existing users.
+- Key precedence is documented: `BREACHSENSE_API_KEY`, then `~/.config/breachsense/license.md`, then `~/.claude/breachsense/license.md` (the older location). Both files live in the home folder, not inside a project.
+- On startup the server logs its version and which source supplied the key (env var name or file path, never the key) to stderr.
+
+### SBOM
+
+The bundle inlines its dependencies, so a customer's `npm audit` and SCA tools see none. That would come up in a customer security review. The build therefore writes a CycloneDX 1.5 SBOM, `dist/sbom.cdx.json`, generated from the esbuild metafile. It lists exactly the packages inlined into the bundle (8 today: the MCP SDK, zod, ajv and their dependencies), each with version, license and the SHA-512 hash from package-lock. Dev tooling is excluded. The SBOM ships in the npm package and is attached to every GitHub release.
 - No tool, schema or behaviour changes.
 
 ### Release
 
-GitHub Actions workflow `.github/workflows/release-mcp.yml`, triggered by a tag `mcp-v*`:
+No npm token exists anywhere. Publishing uses npm trusted publishing (OIDC) together with staged publishing.
 
-1. `npm ci`, `npm run check` (typecheck, tests, build), then the packed-tarball smoke test.
-2. Fail unless the tag version equals the package.json version.
-3. `npm publish --provenance --access public` using the repo secret `NPM_TOKEN`, a granular token scoped to `@breachsense`.
-4. Pack `breachsense.mcpb` with `@anthropic-ai/mcpb@2.1.2` and attach it to a GitHub release for the tag. This is the Claude Desktop download location.
+Workflow `.github/workflows/mcp.yml`. The trusted publisher config matches this filename case-sensitively, so renaming it breaks releases.
 
-Nothing publishes until the PR is merged, `NPM_TOKEN` is set, and the owner pushes the first tag.
+- **On PRs:** typecheck, tests, build, the stdio smoke test, the packed-tarball smoke test, and a check that the committed plugin bundle matches the source. No job uses any repository secret, so fork PRs can't reach a key. The live-key check stays a manual pre-release step and never runs in CI.
+- **On a tag `mcp-v*`** (GitHub-hosted runner, Node 24, `id-token: write`, no dependency cache):
+  1. Upgrade npm to `^11.15.0`. Staged publishing needs 11.15.0; trusted publishing needs 11.5.1 and Node 22.14.0.
+  2. Fail unless the tag version equals the package.json version.
+  3. Build, then run the packed-tarball smoke test again.
+  4. `npm stage publish`. Trusted publishing adds provenance automatically, so there's no `--provenance` flag.
+  5. Pack `breachsense.mcpb` and create the GitHub release with `breachsense.mcpb` and `sbom.cdx.json`. This release is the Claude Desktop download.
+  6. A maintainer approves the staged version with 2FA on npmjs.com (Staged Packages). Only then does it go live.
+
+**One-time bootstrap.** Trusted publishing can only be configured on a package that already exists. The owner runs `scripts/bootstrap-npm.sh` from a logged-in npm session, so no token is ever created. The script:
+
+- checks that the user is an owner or admin of the `breachsense` org;
+- runs check and the smoke tests;
+- stages a throwaway `0.0.1-bootstrap.0`. On a new package, npm also shows a public `0.0.0-stage` placeholder.
+
+The owner then:
+
+1. Adds the trusted publisher: repository `breachsense/breachsense-plugins`, workflow `mcp.yml`, staged publish only.
+2. Rejects the bootstrap version.
+3. Turns on "Require two-factor authentication and disallow tokens" for the package. OIDC keeps working.
+4. Pushes `mcp-v1.0.0`.
+
+A new trusted publisher config must complete its first publish within 2 days or it expires. Push the tag the same day.
+
+**Rollback.** `npm unpublish` works only for 72 hours, and a pinned major keeps resolving to the newest 1.x. The real path is therefore:
+
+1. `npm deprecate @breachsense/mcp@<bad> "<reason>"`.
+2. Release a patch version straight away.
+3. Move the `latest` dist-tag if needed.
 
 ### Docs
 
@@ -66,9 +97,11 @@ Nothing publishes until the PR is merged, `NPM_TOKEN` is set, and the owner push
 - New `scripts/smoke-pack.mjs`, which runs as follows:
   1. `npm pack`.
   2. Install the tarball into a fresh temporary directory.
-  3. Start the installed `breachsense-mcp` bin over stdio with no key and check that 18 tools are listed and that the setup message comes back.
-  4. Check that the installed package has no `node_modules` dependencies.
-- One live check with a real key before the first release: `get_usage`, plus a free `count_only` search.
+  3. Check that the tarball file list is exactly the five files above, so the bundle or the SBOM can't silently drop out.
+  4. Check the SBOM: it is CycloneDX, lists the MCP SDK and zod, and every component has a version and a hash.
+  5. Check that the installed package has no `node_modules` dependencies.
+  6. Start the installed `breachsense-mcp` bin over stdio with no key. Compare the sorted tool names with the snapshot `scripts/expected-tools.json` (the stdio smoke test does the same), and check that the setup message comes back. A rename or removal fails with the exact names; an intentional change updates the snapshot in the same PR.
+- One manual live check with a real key before each release, never in CI: `get_usage`, plus a free `count_only` search.
 
 ## Project 2 outline (own spec later)
 
