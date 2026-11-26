@@ -1,6 +1,6 @@
 # Breachsense MCP for any AI tool: design
 
-Status: approved 2026-11-25 (project 1 of 2), revised after review the same day (trusted publishing, staged releases, SBOM, pinning, tool snapshot). Project 2, the hosted server, is not started.
+Status: SHIPPED 2026-11-26 as @breachsense/mcp 1.0.0. Approved 2026-11-25 (project 1 of 2), revised after review the same day (trusted publishing, staged releases, SBOM, pinning, tool snapshot). Project 2, the hosted server, is not started.
 Date: 2026-11-25
 
 ## Goal
@@ -58,24 +58,30 @@ Workflow `.github/workflows/mcp.yml`. The trusted publisher config matches this 
   5. Pack `breachsense.mcpb` and create the GitHub release with `breachsense.mcpb` and `sbom.cdx.json`. This release is the Claude Desktop download.
   6. A maintainer approves the staged version with 2FA on npmjs.com (Staged Packages). Only then does it go live.
 
-**One-time bootstrap.** Trusted publishing can only be configured on a package that already exists. The owner runs `scripts/bootstrap-npm.sh` from a logged-in npm session, so no token is ever created. The script:
+**One-time bootstrap (done for `@breachsense/mcp` on 2026-11-25/26).** Trusted publishing can only be configured on a package that already exists. The owner runs `scripts/bootstrap-npm.sh` from a logged-in npm session, so no token is ever created. The script:
 
 - checks that the user is an owner or admin of the scope;
 - runs check and the smoke tests;
-- stages a throwaway `0.0.1-bootstrap.0`. On a new package, npm also shows a public `0.0.0-stage` placeholder.
+- stages a throwaway `0.0.1-bootstrap.0`. npm also creates a `0.0.0-stage` placeholder.
 
-It then prints the remaining steps. Their order matters:
+It then prints the remaining steps:
 
-1. **Add the trusted publisher** on the package: repository `breachsense/breachsense-plugins`, workflow `mcp.yml`, staged publish only. npm validates these fields only at publish time.
-2. **Reject `0.0.1-bootstrap.0`**, only after step 1.
-3. **Run `bootstrap-npm.sh verify`.** npm's docs don't say whether rejecting the only staged version of a never-published package removes the package entry. If it does, the trusted publisher loses its target. `verify` checks the registry entry. If the entry is gone, it prints the fallback:
-   - turn off "disallow tokens" if it was enabled;
-   - genuinely `npm publish --tag bootstrap` the `0.0.1-bootstrap.0`;
-   - `npm deprecate` it;
-   - re-add the trusted publisher.
-4. **Turn on "Require two-factor authentication and disallow tokens".** From then on, local publishing fails, including re-running the bootstrap. To retry locally, turn it off first.
-5. **Push `mcp-v1.0.0`.**
-6. **Approve the staged 1.0.0 with 2FA the same day.** A new trusted publisher config expires unless its first successful publish happens within 2 days, and a version that is only staged may not count. If the config expires, delete and re-create it, then push a patch tag. That is recoverable, not fatal.
+1. **Approve** `0.0.1-bootstrap.0` (after about 2 minutes of "Validating").
+2. **Deprecate it.**
+3. **Add the trusted publisher**: repository `breachsense/breachsense-plugins`, workflow `mcp.yml`, staged publish only.
+4. **Push the tag.**
+5. **Approve the staged release** with `npm stage approve <id>`.
+6. **Last, turn on "Require two-factor authentication and disallow bypass 2fa tokens".** It blocks steps 2 and 5.
+
+What the first run taught us:
+
+- **Never reject the bootstrap version.** While only the placeholder exists, rejecting deletes the whole package and its trusted publisher config. It happened once and needed a second bootstrap.
+- **The public registry returns 404** for the package until a version is approved. npmjs.com is the only source of truth before then.
+- **`npm login` sessions expire within hours.** An expired session shows as E404 on `deprecate` and E401 on `whoami`.
+- **`deprecate` and `stage approve` need browser 2FA.** Run them in the owner's terminal, using npm >= 11.15.0 (`npx -y npm@11.21.3`).
+- **A trusted publisher config expires** unless it sees a publish within about 2 days of being saved.
+
+**Outcome:** 1.0.0 was released on 2026-11-26 as `latest`, with a verified registry signature and attestation (`npm audit signatures`). Its trusted publisher status is Valid. Bypass-2FA tokens are disallowed, and `breachsense` is the only maintainer.
 
 **Configuration typos are caught early.** npm checks the repository, the workflow filename (case-sensitive) and a GitHub-hosted runner only at publish time. A mismatch shows up on the tag push as a confusing `ENEEDAUTH`. Two checks catch it before then:
 
