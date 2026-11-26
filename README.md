@@ -1,0 +1,177 @@
+# Breachsense for AI tools
+
+Query the [Breachsense](https://breachsense.com) breach-data platform in plain English from your AI tool. This repo ships two things:
+
+- **MCP server** (`@breachsense/mcp`). Typed tools for all 11 Breachsense APIs, usable from any MCP client: Claude Code, Claude Desktop, Cursor, VS Code/Copilot, Windsurf, Codex CLI, Gemini CLI, Cline, Zed and agent frameworks. Setup for each tool: [mcp/README.md](mcp/README.md).
+- **Agent skill.** Plain-English guidance that teaches the assistant how to query the APIs and summarize the results, for Claude Code, Codex and GitHub Copilot.
+
+The Claude Code plugin installs both. Every other tool connects to the MCP server with one line: `npx -y @breachsense/mcp@1` (pinned to major version 1; see [mcp/README.md](mcp/README.md) for exact pins and the SBOM).
+
+The skill covers all 11 Breachsense API endpoints (stealer, combo, creds, sessions, nhi, phish, radar, darkweb, docs, asm, and account). Ask in plain English and get a summary back instead of raw JSON.
+
+## Install
+
+### Claude Code
+
+Inside Claude Code:
+
+```
+/plugin marketplace add https://github.com/breachsense/breachsense-plugins
+/plugin install breachsense@breachsense
+/reload-plugins
+```
+
+The HTTPS URL form works on any machine. The shorthand `breachsense/breachsense-plugins` form clones via SSH and needs a GitHub SSH key configured locally.
+
+Pick **"Install for you (user scope)"** when prompted so the skill is available across all your projects.
+
+#### Verify the skill loaded
+
+Run `/skills` inside Claude Code. You should see `breachsense:query` listed as `on`.
+
+If `/reload-plugins` reports `0 skills`, that's a cosmetic display bug, not a real failure. Trust `/skills`.
+
+### Codex and GitHub Copilot
+
+Both read skills from `~/.agents/skills/`:
+
+```bash
+git clone https://github.com/breachsense/breachsense-plugins
+mkdir -p ~/.agents/skills
+cp -r breachsense-plugins/plugins/breachsense/skills/query ~/.agents/skills/breachsense
+```
+
+To share the skill with your team, commit the same folder to `.agents/skills/` (Codex) or `.github/skills/` (Copilot) in a shared repo.
+
+In Codex, start a new session and ask which skills it has. In Copilot, run `copilot skill list`. You should see `query`.
+
+Copilot asks before it reads files outside your project, opens a URL or runs a command. Approve `https://api.breachsense.com` for the session so it doesn't ask on every query.
+
+## Set your license key
+
+The skill checks two places, in order:
+
+### Option 1: environment variable (recommended)
+
+```bash
+echo 'export BREACHSENSE_API_KEY=your-license-key-here' >> ~/.zshrc
+source ~/.zshrc
+```
+
+Restart your Claude Code, Codex or Copilot session afterward. They read the environment at startup, so a running session won't pick up the new variable.
+
+### Option 2: license file
+
+```bash
+mkdir -p ~/.config/breachsense
+echo 'your-license-key-here' > ~/.config/breachsense/license.md
+chmod 600 ~/.config/breachsense/license.md
+```
+
+Use this if you'd rather not touch your shell config. The older `~/.claude/breachsense/license.md` location still works.
+
+## MCP server
+
+The MCP server reads your license key from `BREACHSENSE_API_KEY` or `~/.config/breachsense/license.md`, exactly like the skill.
+
+| Your tool | How to connect |
+|---|---|
+| Claude Code | Installing the plugin sets it up. Run `/mcp` to confirm `breachsense` is connected. |
+| Claude Desktop | Download `breachsense.mcpb` from the [latest release](https://github.com/breachsense/breachsense-plugins/releases) and open it. |
+| Cursor, VS Code/Copilot, Windsurf, Codex CLI, Gemini CLI, Cline, Zed | Add a stdio server that runs `npx -y @breachsense/mcp@1`. Copy-paste configs: [mcp/README.md](mcp/README.md#2-connect-your-ai-tool). |
+| Agent frameworks (OpenAI Agents SDK, Claude Agent SDK, MCP SDKs) | Same command over stdio. Examples: [mcp/README.md](mcp/README.md#agent-frameworks). |
+| ChatGPT, claude.ai | These need a hosted MCP server, which is planned. |
+
+Every search page costs one query from your monthly allowance, and each tool says what it costs. Count-only searches are free, and so are searches for `example.com` and `test.com`, so you can test the connection with them.
+
+## Try it
+
+After install, ask things like:
+
+- *"Show me stealer logs for acme.com from the last 30 days."*
+- *"Any session tokens for our domain on Discord?"*
+- *"What's exposed for acme.com on ransomware leak sites?"*
+- *"Find leaked AWS keys associated with acme.com."*
+- *"Search leaked documents for mentions of acme.com."*
+- *"Add acme.com to my watchlist and notify security@acme.com."*
+- *"Show me potential phishing domains for acme.com."*
+
+## What you get
+
+The assistant will:
+- Tell you which endpoint it's querying, then run it
+- Put plaintext passwords in the summary, mark fresh hits, and point out admin accounts and reused passwords
+- Flag leaked API keys by platform (AWS, GitHub, OpenAI, etc.) and source type
+- Highlight live session tokens (these bypass MFA)
+- Suggest the next useful query (cross-checks, date filters, watchlist setup)
+- Show raw JSON if you ask
+
+What it won't do:
+- Tell you to "reset all passwords now" or make remediation decisions for you
+- Label specific people as "high-risk"
+- Hide data. Full responses are one ask away
+- Run destructive operations (key rotation, watchlist changes) without your confirmation
+
+## Endpoints covered
+
+| Endpoint | Purpose |
+|---|---|
+| `/stealer` | Infostealer credentials (Redline, Lumma, StealC, etc.) |
+| `/combo` | Combo lists from hacking forums |
+| `/creds` | Third-party breach credentials and unsecured database dumps |
+| `/sessions` | Session cookies and auth tokens (bypass MFA) |
+| `/nhi` | Non-human identities: API keys, OAuth tokens, service creds |
+| `/phish` | Credentials captured by phishing kits, recovered from the operators' exfiltration channels |
+| `/darkweb` | Ransomware leak site mentions |
+| `/radar` | Hacker forums and underground marketplaces where credentials are traded or sold |
+| `/docs` | Full-text search (any string) across leaked ransomware files, third-party breaches, and unsecured database dumps |
+| `/asm` | Attack surface: subdomains, exposed services, phishing domains |
+| `/account` | Watchlist, webhook alerts, test alerts, license rotation |
+
+## Updating the skill
+
+When a new version ships, in Claude Code:
+
+```
+/plugin marketplace update breachsense
+/plugin install breachsense@breachsense
+/reload-plugins
+```
+
+For Codex and Copilot, run `git pull` in your clone and copy the `query` folder again.
+
+## Troubleshooting
+
+**403 with `error code: 1010`**
+Cloudflare blocks the default user agent of Python's built-in `urllib`. Use curl, or send a different `User-Agent` header. The skill tells the assistant to use curl.
+
+**Copilot: "failed to parse YAML frontmatter"**
+You have a version older than 1.3.2. Run `git pull` and copy the folder again.
+
+**"Marketplace file not found"**
+The repo is missing `.claude-plugin/marketplace.json` at the root, or your local marketplace cache is stale. Run `/plugin marketplace update breachsense`.
+
+**Plugin installs but `/skills` shows nothing**
+Make sure Claude Code is on a recent version: `claude --version`, then `npm install -g @anthropic-ai/claude-code@latest` to update. Then uninstall, update the marketplace, and reinstall:
+
+```
+/plugin uninstall breachsense@breachsense
+/plugin marketplace update breachsense
+/plugin install breachsense@breachsense
+/reload-plugins
+```
+
+**Validation error on install**
+Check the `/plugin` UI's **Errors** tab for the exact reason. Most issues are schema mismatches in `plugin.json` (e.g. `author` must be an object with `name`/`email`/`url`, not a string).
+
+**SSH clone fails**
+Claude Code clones via SSH (`git@github.com:...`) when you use the shorthand form. Confirm your GitHub SSH key works: `ssh -T git@github.com`. If you don't have SSH set up, use the HTTPS form: `/plugin marketplace add https://github.com/breachsense/breachsense-plugins.git`.
+
+## Get a license key
+
+Sign up at [breachsense.com](https://breachsense.com).
+
+## Support
+
+- Issues: https://github.com/breachsense/breachsense-plugins/issues
+- Email: support@breachsense.com
